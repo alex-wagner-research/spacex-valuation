@@ -1,0 +1,10 @@
+{
+  "date": "2026-06-12",
+  "open": null,
+  "close": null,
+  "intraday_high": null,
+  "intraday_low": null,
+  "volume_mshares": null,
+  "shares_offered_m": 555.6,
+  "notes": "Fill from Nasdaq official open/close for SPCX on 2026-06-12. shares_offered_m: primary shares sold; update if the greenshoe (overallotment) was exercised. Then run code/python/09_post_ipo_update.py and flip \\postipotrue in main.tex."
+}
