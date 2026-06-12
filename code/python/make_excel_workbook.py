@@ -8,6 +8,8 @@ Monte Carlo of the correlated segment model (1,000 trials on _xlfn.NORM.S.INV(RA
 redraw), the sum of parts, and the inversion (a value-versus-WACC grid with interpolation, no
 macros). The xAI abandonment option enters as an imported value: it is an optimal-stopping
 problem solved by least-squares Monte Carlo (venture_option.py) with no formula representation.
+The Lattice tab adds a one-factor binomial approximation of that option, so the optimal-stopping
+logic is at least visible in live formulas; the tab explains what the approximation drops.
 
 Conventions (standard financial-model colors): blue on yellow = inputs to change, black =
 formulas, green = links across tabs, grey italic = the Python pipeline's values quoted for
@@ -42,6 +44,61 @@ CHK = {"mean": float(_EQ.mean()), "p5": float(np.quantile(_EQ, 0.05)),
 
 DEC = json.loads((ROOT / "output" / "tables" / "decomposition.json").read_text())
 OP = DEC["option_params"]
+
+# the LSM run the Lattice tab approximates (venture_option.py output: params + values)
+RUNG = json.loads((ROOT / "output" / "tables" / "rung0_xai_option.json").read_text())
+VP = RUNG["params"]
+# the venture model shares the firm's marginal tax rate and terminal growth; the Lattice tab
+# reuses those Inputs cells, so the two must agree
+assert VP["tau"] == 0.25 and VP["g_term"] == 0.0456
+
+
+def _lattice_check(p):
+    """The Lattice tab's recursion in numpy: the Excel formulas must match this to the dollar.
+
+    One-factor binomial on revenue, annual steps, p = 1/2. The expected growth rate follows its
+    deterministic mean-reverting path; the lattice step sigma_eff is set so the variance of log
+    revenue at the horizon matches the two-state model's (revenue shocks plus the accumulated
+    effect of growth-rate shocks). Cash flows sit on transitions because reinvestment needs the
+    revenue change; abandonment is checked once a year against salvage.
+    """
+    T_ = int(p["T"])
+    mu = np.array([p["mubar"] + np.exp(-p["kappa"] * t) * (p["mu0"] - p["mubar"])
+                   for t in range(T_)])                      # drift used in year t+1
+    sig_t = np.array([p["sigma0"] * np.exp(-p["k1"] * t) + p["sigmabar"] * (1 - np.exp(-p["k1"] * t))
+                      for t in range(1, T_ + 1)])
+    ek = np.exp(-p["kappa"])
+    ou_sd = np.array([p["eta0"] * np.exp(-p["k2"] * s)
+                      * np.sqrt((1 - np.exp(-2 * p["kappa"])) / (2 * p["kappa"]))
+                      for s in range(1, T_)])
+    load = ou_sd * (1 - ek ** (T_ - np.arange(1, T_))) / (1 - ek)
+    sig = float(np.sqrt(((sig_t ** 2).sum() + (load ** 2).sum()) / T_))
+
+    rev = [np.array([p["R0"]])]
+    for t in range(T_):
+        prev, nxt = rev[-1], np.empty(t + 2)
+        nxt[: t + 1] = prev * np.exp(mu[t] - 0.5 * sig_t[t] ** 2 - sig)
+        nxt[t + 1] = prev[t] * np.exp(mu[t] - 0.5 * sig_t[t] ** 2 + sig)
+        rev.append(nxt)
+
+    def cf(rnew, rprev):
+        ebit = p["cm"] * rnew - p["fixed_cost"]
+        return ebit - p["tau"] * np.maximum(ebit, 0.0) - np.maximum(rnew - rprev, 0.0) / p["s2c"]
+
+    tv = np.maximum(0.0, (p["cm"] * rev[T_] - p["fixed_cost"]) * (1 - p["tau"])
+                    * (1 + p["g_term"]) / (p["r"] - p["g_term"]))
+    Vw, Vo, stops = tv.copy(), tv.copy(), 0
+    for t in range(T_ - 1, -1, -1):
+        cfu, cfd = cf(rev[t + 1][1:], rev[t]), cf(rev[t + 1][:-1], rev[t])
+        cont = (0.5 * (cfu + Vw[1:]) + 0.5 * (cfd + Vw[:-1])) / (1 + p["r"])
+        Vo = (0.5 * (cfu + Vo[1:]) + 0.5 * (cfd + Vo[:-1])) / (1 + p["r"])
+        stops += int((cont <= p["salvage"]).sum())
+        Vw = np.maximum(p["salvage"], cont)
+    return {"sigma_eff": sig, "with": float(Vw[0]), "without": float(Vo[0]),
+            "option": float(Vw[0] - Vo[0]), "stops": stops, "nodes": T_ * (T_ + 1) // 2}
+
+
+LAT = _lattice_check(VP)
 
 BLUE = Font(name="Arial", size=10, color="0000FF")
 BLACK = Font(name="Arial", size=10)
@@ -167,9 +224,37 @@ def build_inputs(ws):
     inp("Mars: settlement co-investment", 15000, "Appendix A.2")
     inp("Mars: P(settlement given crewed)", 0.25, "One of three crewed initiatives since 1989 survived (App. A.2)")
 
+    head("xAI venture model — Lattice tab (venture_option.py defaults; tax and terminal growth "
+         "reuse the firm-level cells above)")
+    inp("xAI venture: revenue 2025", VP["R0"],
+        "xAI 2025 revenue; the venture model's round $3.2B vs the segment table's 3,201")
+    inp("xAI venture: growth, initial", VP["mu0"],
+        "About 40%/yr toward the $160B 2036 target (paper Sec. 4)", PCT)
+    inp("xAI venture: growth, long run", VP["mubar"], "Long-run growth after mean reversion", PCT)
+    inp("xAI venture: growth mean-reversion kappa", VP["kappa"],
+        "Schwartz-Moon-style dynamics (paper App. A.2)", "0.00")
+    inp("xAI venture: revenue volatility, initial", VP["sigma0"],
+        "High: intense AI competition (OpenAI, Anthropic, Google)", PCT)
+    inp("xAI venture: revenue volatility, long run", VP["sigmabar"], "Paper App. A.2", PCT)
+    inp("xAI venture: revenue-volatility decay k1", VP["k1"],
+        "Uncertainty resolves as the venture matures", "0.00")
+    inp("xAI venture: growth volatility eta0", VP["eta0"],
+        "Volatility of the second state variable; enters the lattice only through the variance match", PCT)
+    inp("xAI venture: growth-volatility decay k2", VP["k2"], "Paper App. A.2", "0.00")
+    inp("xAI venture: contribution margin", VP["cm"], "Margin on revenue before the fixed cost", PCT)
+    inp("xAI venture: fixed cost", VP["fixed_cost"],
+        "Ongoing R&D and baseline compute; breakeven revenue = fixed cost / margin = $8.3B")
+    inp("xAI venture: sales-to-capital", VP["s2c"],
+        "Growth investment enters via reinvestment (the ~$9B data-center capex is growth, not fixed cost)", "0.0")
+    inp("xAI venture: cost of capital", VP["r"],
+        "Above the 8.25% firm WACC: a stand-alone xAI is riskier", PCT2)
+    inp("xAI venture: salvage value", VP["salvage"],
+        "Recovery on abandonment; 0 is the conservative lower bound, and the LSM import is at salvage 0")
+
     head("Imported from the Python model (no formula representation)")
     inp("xAI abandonment option", round(DEC["salvage_sensitivity"]["salvage $0B"]["option_value"]),
-        "Least-squares Monte Carlo (venture_option.py; paper Sec. 5.2); salvage 0")
+        "Least-squares Monte Carlo (venture_option.py; paper Sec. 5.2); salvage 0. "
+        "The Lattice tab builds a formula approximation of this value")
     inp("xAI venture floor", round(DEC["venture_floor"]),
         "Venture model with optimal abandonment (paper Sec. 6 sum of parts)")
     inp("xAI winning-model value", round(DEC["xai_scenarios"]["winning model (30%)"]),
@@ -375,6 +460,168 @@ def build_options(ws):
     w(ws, r + 3, 2, f"={DCFREF['Equity']}+B{r + 2}", fmt=M0, bold=True)
     w(ws, r + 4, 1, "Per share ($)")
     w(ws, r + 4, 2, f"=B{r + 3}/{IN['Shares outstanding (M)']}", fmt="0.00", bold=True)
+
+
+# ----------------------------------------------------------------------------------
+def build_lattice(ws):
+    ws.column_dimensions["A"].width = 46
+    ws.column_dimensions["B"].width = 13
+    for i in range(12):
+        ws.column_dimensions[col(3 + i)].width = 10      # C..N: lattice columns t = 0..11
+    ws.column_dimensions["P"].width = 13
+
+    R0 = IN["xAI venture: revenue 2025"]
+    mu0 = IN["xAI venture: growth, initial"]
+    mubar = IN["xAI venture: growth, long run"]
+    kap = IN["xAI venture: growth mean-reversion kappa"]
+    sg0 = IN["xAI venture: revenue volatility, initial"]
+    sgb = IN["xAI venture: revenue volatility, long run"]
+    k1 = IN["xAI venture: revenue-volatility decay k1"]
+    eta0 = IN["xAI venture: growth volatility eta0"]
+    k2 = IN["xAI venture: growth-volatility decay k2"]
+    cm = IN["xAI venture: contribution margin"]
+    F = IN["xAI venture: fixed cost"]
+    s2c = IN["xAI venture: sales-to-capital"]
+    rv = IN["xAI venture: cost of capital"]
+    salv = IN["xAI venture: salvage value"]
+    tax = IN["Tax rate, marginal"]
+    g = IN["Terminal growth"]
+
+    w(ws, 1, 1, "Lattice — the xAI abandonment option as a binomial tree (paper Sec. 5.2; values $M)",
+      font=H1)
+    w(ws, 2, 1, "How this tab relates to the Python model (venture_option.py)", font=H2)
+    expl = [
+        "The paper values the option to stop funding xAI by least-squares Monte Carlo (Longstaff-Schwartz 2001)",
+        "on 100,000 simulated paths of a two-state model: revenue, and its expected growth rate, which is itself",
+        "stochastic and mean-reverting. Optimal stopping with two state variables has no formula representation,",
+        "which is why the Inputs tab imports that value rather than computing it. This tab is the closest object",
+        "a spreadsheet can hold: a binomial lattice on revenue alone, with two simplifications. First, the growth",
+        "rate follows its expected (deterministic) path. Second, volatility is a single number, set so the total",
+        "variance of log revenue at the 2036 horizon matches the full model's, growth-rate shocks included (the",
+        "variance match in step 1). Everything else, the cash-flow construction, taxes, reinvestment, the floored",
+        "terminal value, the annual abandon-or-fund decision, and the discount rate, is identical to the Python",
+        "model, and every cell below is a live formula on the Inputs-tab assumptions.",
+        "",
+        "Reading the lattices: columns are years; from any cell, next year is either the cell one to the right",
+        "(an up year) or the cell one to the right and one row down (a down year), each with probability 1/2.",
+        "Values are computed backward from 2036: at each node the venture is worth the better of salvage (abandon)",
+        "or the expected cash flow plus next-year value, discounted (fund). The lattice understates the LSM option",
+        "value, by roughly half at the default inputs: with the growth state dropped, there are no persistent",
+        "'lost the AI race' trajectories in which growth collapses and stays low, and cutting exactly those losses",
+        "is most of what the real option is worth. Treat this tab as the mechanics made auditable; the paper's",
+        "number is the imported LSM value.",
+    ]
+    for i, line in enumerate(expl):
+        w(ws, 3 + i, 1, line, font=GREY)
+
+    # ---- step 1: schedules ----
+    r_idx, r_mu, r_sig, r_load, r_se, r_up, r_dn = 23, 24, 25, 26, 27, 28, 29
+    w(ws, 22, 1, "Step 1 — schedules: expected growth, volatilities, and the variance-matched step",
+      font=H2)
+    w(ws, r_idx, 1, "Year t")
+    w(ws, r_mu, 1, "Expected growth mu(t-1), mean-reverting path")
+    w(ws, r_sig, 1, "Revenue volatility sigma_t, declining")
+    w(ws, r_load, 1, "Growth-shock loading on ln R(2036)")
+    w(ws, r_se, 1, "Lattice step sigma_eff (variance match)")
+    w(ws, r_up, 1, "Up factor = exp(mu - sigma_t^2/2 + sigma_eff)")
+    w(ws, r_dn, 1, "Down factor = exp(mu - sigma_t^2/2 - sigma_eff)")
+    for t in range(1, T + 1):
+        c = col(3 + t)                                   # year t sits in the column of node t
+        w(ws, 22, 3 + t, str(2025 + t), font=GREY)
+        w(ws, r_idx, 3 + t, t, fmt="0")
+        w(ws, r_mu, 3 + t, f"={mubar}+EXP(-{kap}*({c}${r_idx}-1))*({mu0}-{mubar})", fmt=PCT)
+        w(ws, r_sig, 3 + t, f"={sg0}*EXP(-{k1}*{c}${r_idx})+{sgb}*(1-EXP(-{k1}*{c}${r_idx}))", fmt=PCT)
+        if t < T:    # a year-t growth shock shifts expected growth in years t..T-1; none in year T
+            w(ws, r_load, 3 + t,
+              f"={eta0}*EXP(-{k2}*{c}${r_idx})*SQRT((1-EXP(-2*{kap}))/(2*{kap}))"
+              f"*(1-EXP(-{kap}*({T}-{c}${r_idx})))/(1-EXP(-{kap}))", fmt="0.000")
+        w(ws, r_up, 3 + t, f"=EXP({c}${r_mu}-0.5*{c}${r_sig}^2+$B${r_se})", fmt="0.000")
+        w(ws, r_dn, 3 + t, f"=EXP({c}${r_mu}-0.5*{c}${r_sig}^2-$B${r_se})", fmt="0.000")
+    w(ws, r_se, 2, f"=SQRT((SUMSQ(D{r_sig}:N{r_sig})+SUMSQ(D{r_load}:M{r_load}))/{T})",
+      fmt=PCT, bold=True)
+    w(ws, r_se, 3, f"Python check: {LAT['sigma_eff']:.2%}. Per year: revenue-shock variance "
+                   f"sigma_t^2 plus the squared loadings of growth shocks, averaged, square root.",
+      font=GREY)
+
+    # ---- triangles: node (t, j up-moves) sits in column 3+t, row base + (t - j) ----
+    REV, CFU, CFD, VW, VO, DCN = 33, 47, 60, 73, 86, 99
+    rev_a = lambda t, j: f"{col(3 + t)}{REV + t - j}"
+    tv_a = lambda j: f"P{REV + T - j}"
+    cfu_a = lambda t, j: f"{col(3 + t)}{CFU + t - j}"
+    cfd_a = lambda t, j: f"{col(3 + t)}{CFD + t - j}"
+    vw_a = lambda t, j: f"{col(3 + t)}{VW + t - j}"
+    vo_a = lambda t, j: f"{col(3 + t)}{VO + t - j}"
+
+    w(ws, REV - 2, 1, "Step 2 — the revenue lattice, recombining (and the 2036 terminal value)", font=H2)
+    for t in range(T + 1):
+        w(ws, REV - 1, 3 + t, str(2025 + t), font=GREY)
+    w(ws, REV - 1, 16, "TV 2036", font=GREY)
+    w(ws, REV, 3, f"={R0}", font=GREEN, fmt=M0)
+    for t in range(1, T + 1):
+        c = col(3 + t)
+        for j in range(t + 1):
+            f = (f"={rev_a(t - 1, t - 1)}*{c}${r_up}" if j == t
+                 else f"={rev_a(t - 1, j)}*{c}${r_dn}")
+            w(ws, REV + t - j, 3 + t, f, fmt=M0)
+    for j in range(T + 1):
+        w(ws, REV + T - j, 16,
+          f"=MAX(0,({cm}*{rev_a(T, j)}-{F})*(1-{tax})*(1+{g})/({rv}-{g}))", fmt=M0)
+
+    def cf_formula(rnew, rprev):
+        return (f"=({cm}*{rnew}-{F})-{tax}*MAX({cm}*{rnew}-{F},0)"
+                f"-MAX({rnew}-{rprev},0)/{s2c}")
+
+    w(ws, CFU - 1, 1, "Step 3 — free cash flow of the coming year if revenue moves up "
+                      "(column = current year-end state)", font=H2)
+    w(ws, CFD - 1, 1, "Step 4 — free cash flow of the coming year if revenue moves down", font=H2)
+    for t in range(T):
+        for j in range(t + 1):
+            w(ws, CFU + t - j, 3 + t, cf_formula(rev_a(t + 1, j + 1), rev_a(t, j)), fmt=M0)
+            w(ws, CFD + t - j, 3 + t, cf_formula(rev_a(t + 1, j), rev_a(t, j)), fmt=M0)
+
+    w(ws, VW - 1, 1, "Step 5 — value WITH the annual option to abandon: "
+                     "max(salvage, expected[cash flow + next value] / (1+r))", font=H2)
+    w(ws, VO - 1, 1, "Step 6 — value WITHOUT the option: the same recursion, never abandoning", font=H2)
+    w(ws, DCN - 1, 1, "Step 7 — the funding decision at each node "
+                      "('stop' where continuing is worth less than salvage)", font=H2)
+    for t in range(T - 1, -1, -1):
+        for j in range(t + 1):
+            up_w, dn_w = (vw_a(t + 1, j + 1), vw_a(t + 1, j)) if t + 1 < T else (tv_a(j + 1), tv_a(j))
+            up_o, dn_o = (vo_a(t + 1, j + 1), vo_a(t + 1, j)) if t + 1 < T else (tv_a(j + 1), tv_a(j))
+            cu, cd = cfu_a(t, j), cfd_a(t, j)
+            w(ws, VW + t - j, 3 + t,
+              f"=MAX({salv},(0.5*({cu}+{up_w})+0.5*({cd}+{dn_w}))/(1+{rv}))", fmt=M0)
+            w(ws, VO + t - j, 3 + t,
+              f"=(0.5*({cu}+{up_o})+0.5*({cd}+{dn_o}))/(1+{rv})", fmt=M0)
+            w(ws, DCN + t - j, 3 + t, f'=IF({vw_a(t, j)}<={salv},"stop","fund")')
+
+    # ---- summary ----
+    s = 111
+    w(ws, s, 1, "Summary — the lattice against the paper's least-squares Monte Carlo", font=H2)
+    w(ws, s + 1, 1, "Venture value WITH abandonment (lattice)")
+    w(ws, s + 1, 2, f"={vw_a(0, 0)}", fmt=M0, bold=True)
+    w(ws, s + 1, 3, round(LAT["with"]), font=GREY, fmt=M0)
+    w(ws, s + 1, 4, f"Python lattice check (same recursion in code); the LSM two-state value is "
+                    f"{RUNG['value_with_option']:,.0f}, the venture floor on the Inputs tab", font=GREY)
+    w(ws, s + 2, 1, "Venture value WITHOUT abandonment (lattice)")
+    w(ws, s + 2, 2, f"={vo_a(0, 0)}", fmt=M0, bold=True)
+    w(ws, s + 2, 3, round(LAT["without"]), font=GREY, fmt=M0)
+    w(ws, s + 2, 4, f"Python lattice check; LSM: {RUNG['value_without_option']:,.0f} "
+                    f"(funded to the horizon, the governance benchmark of paper Sec. 5.4)", font=GREY)
+    w(ws, s + 3, 1, "Abandonment option (lattice) = difference")
+    w(ws, s + 3, 2, f"=B{s + 1}-B{s + 2}", fmt=M0, bold=True)
+    w(ws, s + 3, 3, round(LAT["option"]), font=GREY, fmt=M0)
+    w(ws, s + 3, 4, "Downside protection from optimal stopping, as the lattice prices it", font=GREY)
+    w(ws, s + 4, 1, "Abandonment option (paper: imported LSM)")
+    w(ws, s + 4, 2, f"={IN['xAI abandonment option']}", font=GREEN, fmt=M0, bold=True)
+    w(ws, s + 4, 3, round(RUNG["option_value"]), font=GREY, fmt=M0)
+    w(ws, s + 4, 4, "What the paper and the other tabs use (Inputs tab import, salvage 0)", font=GREY)
+    w(ws, s + 5, 1, f"At the default inputs the venture is stopped at {LAT['stops']} of the "
+                    f"{LAT['nodes']} funding nodes in step 7, and the lattice option is about "
+                    f"{LAT['option'] / RUNG['option_value']:.0%} of the LSM value; the explanation at "
+                    f"the top says why.", font=GREY)
+    w(ws, s + 6, 1, "If you change venture inputs, this tab updates live while the imported LSM "
+                    "values go stale until the Python model is re-run (see the README tab).", font=GREY)
 
 
 # ----------------------------------------------------------------------------------
@@ -657,6 +904,9 @@ def build_readme(ws):
         ("                direct-to-cell underlying business.", BLACK),
         ("  Options     — the expansion claims by their closed forms, the Mars probability tree,", BLACK),
         ("                and the imported abandonment option (paper Section 5).", BLACK),
+        ("  Lattice     — the xAI abandonment option as a binomial tree: a one-factor, fully live", BLACK),
+        ("                approximation of the Python least-squares Monte Carlo, with the relation", BLACK),
+        ("                between the two explained on the tab (paper Section 5.2).", BLACK),
         ("  MonteCarlo  — 1,000 live trials of the correlated segment model (paper Section 4.3):", BLACK),
         ("                distribution summary and histogram. Press F9 to redraw.", BLACK),
         ("  Inversion   — total value across discount rates and the implied rate at the target", BLACK),
@@ -675,8 +925,8 @@ def build_readme(ws):
         ("", BLACK),
         ("Not in this workbook (Python only): the simulated option values on correlated paths (the", BLACK),
         ("closed forms here are validated against them in Appendix A.2), the xAI abandonment option's", BLACK),
-        ("least-squares Monte Carlo (imported on the Inputs tab), and the joint acceptance sampling of", BLACK),
-        ("Appendix B.", BLACK),
+        ("least-squares Monte Carlo (imported on the Inputs tab; the Lattice tab holds a live one-factor", BLACK),
+        ("approximation of it), and the joint acceptance sampling of Appendix B.", BLACK),
     ]
     for i, (txt, font) in enumerate(lines):
         w(ws, 1 + i, 1, txt, font=font)
@@ -685,12 +935,15 @@ def build_readme(ws):
 def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     wb = Workbook()
+    wb.properties.creator = "Alexander Wagner and Claude Code"
+    wb.properties.lastModifiedBy = "Alexander Wagner"
     ws = wb.active
     ws.title = "README"
     build_readme(ws)
     build_inputs(wb.create_sheet("Inputs"))
     build_dcf(wb.create_sheet("DCF"))
     build_options(wb.create_sheet("Options"))
+    build_lattice(wb.create_sheet("Lattice"))
     build_montecarlo(wb.create_sheet("MonteCarlo"))
     build_inversion(wb.create_sheet("Inversion"))
     build_sop(wb.create_sheet("SumOfParts"))
