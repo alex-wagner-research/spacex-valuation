@@ -50,6 +50,21 @@ RITTER_BIG_MEAN = 13.3            # sales >= $500M (2024 $), 2001-2025
 RITTER_TABLE_AGG_B = 250.1        # aggregate money left on the table 1980-2025, $B
 LOS_MEAN, LOS_SD = 22.0, 55.0     # 1965-2005 initial returns: mean, cross-sectional SD (%)
 
+# Listing-day reporting, all from the FT live blog of June 12, 2026 ("SpaceX live: Elon Musk
+# becomes trillionaire as SpaceX soars in Wall Street debut"; PDF archived in Literature/)
+FT_TURNOVER_B = 81.5              # dollar value of shares traded on day 1 ($B)
+MORNINGSTAR_SH = 63               # Morningstar fair-value estimate, $/share ("probably worth")
+GOLDMAN_XAI_2030_B = 322          # Goldman projection: AI-unit revenue needed by 2030 ($B)
+PRED_EOD_LO_T, PRED_EOD_HI_T = 2.2, 2.4   # same-day Polymarket / IG expected closing cap ($T)
+PERP_JUNE11 = 162.0               # June 11 pre-listing perpetual-futures level, $/share
+                                  # (already cited in Sec. 3 of the paper via CNBC, June 10-11)
+IND_HIGH = 175                    # highest pre-open indication, $/share (early quotes)
+
+# Ritter, "Money Left on the Table in IPOs by Firm" (May 15, 2026 vintage), rank 1 of the
+# listing: Visa, March 2008, $5,075,000,000 (Alibaba's 2014 ADR left $8.29B but is excluded
+# from the listing by construction)
+RITTER_TOP_US_B = 5.1
+
 
 def implied_wacc(cap_musd: float) -> float | None:
     """Discount rate at which deterministic value + base options equals cap ($M)."""
@@ -73,6 +88,11 @@ def main():
     table_b = (c - OFFER) * shares_sold_m / 1000          # Loughran-Ritter money on the table
     sd_units_all = (pop_close - LOS_MEAN) / LOS_SD        # vs the all-IPO distribution
     dist_big = pop_close - RITTER_BIG_MEAN                # vs the large-issuer mean (pp)
+    vol_m = float(d.get("volume_mshares") or 0)
+    vol_pct_sold = vol_m / shares_sold_m * 100            # day-1 volume vs shares sold
+    pop_high = (float(hi) / OFFER - 1) * 100 if hi is not None else None
+    cap_high_t = float(hi) * SHARES_M / 1e6 if hi is not None else None
+    perp_gap_pct = abs(PERP_JUNE11 / c - 1) * 100         # June 11 futures vs actual close
 
     w_open = implied_wacc(o * SHARES_M)
     w_close = implied_wacc(c * SHARES_M)
@@ -91,7 +111,17 @@ def main():
          f"\\newcommand{{\\poTableB}}{{{table_b:.1f}}}",
          f"\\newcommand{{\\poSharesSoldM}}{{{shares_sold_m:.0f}}}",
          f"\\newcommand{{\\poFloatPct}}{{{shares_sold_m / SHARES_M * 100:.0f}}}",
-         f"\\newcommand{{\\poSdUnitsAll}}{{{abs(sd_units_all):.1f}}}",
+         f"\\newcommand{{\\poSdUnitsAll}}{{{abs(sd_units_all):.2f}}}",
+         f"\\newcommand{{\\poVolM}}{{{vol_m:.0f}}}",
+         f"\\newcommand{{\\poVolPctSold}}{{{vol_pct_sold:.0f}}}",
+         f"\\newcommand{{\\poTurnoverB}}{{{FT_TURNOVER_B:.0f}}}",
+         f"\\newcommand{{\\poMorningstarSh}}{{{MORNINGSTAR_SH}}}",
+         f"\\newcommand{{\\poGoldmanXaiB}}{{{GOLDMAN_XAI_2030_B}}}",
+         f"\\newcommand{{\\poPredLoT}}{{{PRED_EOD_LO_T}}}",
+         f"\\newcommand{{\\poPredHiT}}{{{PRED_EOD_HI_T}}}",
+         f"\\newcommand{{\\poPerpGapPct}}{{{perp_gap_pct:.1f}}}",
+         f"\\newcommand{{\\poIndHigh}}{{{IND_HIGH}}}",
+         f"\\newcommand{{\\poRitterTopB}}{{{RITTER_TOP_US_B}}}",
          f"\\newcommand{{\\poDistBigPp}}{{{abs(dist_big):.1f}}}",
          f"\\newcommand{{\\poWaccOpenPct}}{{{pct(w_open * 100, 2) if w_open else '--'}}}",
          f"\\newcommand{{\\poWaccClosePct}}{{{pct(w_close * 100, 2) if w_close else '--'}}}",
@@ -110,7 +140,9 @@ def main():
          f"\\newcommand{{\\poGroundedHiSh}}{{{_dec['grounded_total_range'][1] / SHARES_M:.0f}}}"]
     if hi is not None and lo is not None:
         L += [f"\\newcommand{{\\poHigh}}{{{float(hi):.2f}}}",
-              f"\\newcommand{{\\poLow}}{{{float(lo):.2f}}}"]
+              f"\\newcommand{{\\poLow}}{{{float(lo):.2f}}}",
+              f"\\newcommand{{\\poPopHighPct}}{{{pop_high:.1f}}}",
+              f"\\newcommand{{\\poCapHighT}}{{{cap_high_t:.2f}}}"]
 
     OUT.write_text("\n".join(L) + "\n", encoding="utf-8")
     print(f"Day 1: open {o} ({pop_open:+.1f}%), close {c} ({pop_close:+.1f}%), "
