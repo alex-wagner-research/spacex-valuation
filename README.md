@@ -59,9 +59,12 @@ the DCF as a classic year-by-year waterfall with a step-by-step terminal value, 
 claims by their closed forms, the Mars probability tree, a live 1,000-trial Monte Carlo of the
 correlated segment model (press F9), the sum of parts, and the inversion (implied discount rate
 at any target price, no macros). Inputs are blue on the Inputs tab with sources; grey italics
-quote the Python pipeline's values for checking. The xAI abandonment option is imported (its
-least-squares Monte Carlo has no formula representation). Regenerate the workbook after a
-recalibration with `python code/python/make_excel_workbook.py` (requires openpyxl).
+quote the Python pipeline's values for checking. The workbook is self-contained: an Excel-only
+user can change any input and read every result live, with one caveat — the three imported xAI
+cells (abandonment option, venture floor, winning-model value) come from the Python model and do
+not recalculate, so they go stale after large changes to the xAI assumptions. Python users can
+refresh them, and the grey checks, by rerunning the pipeline and
+`python code/python/make_excel_workbook.py` (requires openpyxl).
 
 ## Playing with the parameters
 

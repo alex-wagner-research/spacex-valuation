@@ -59,6 +59,16 @@ T = 11          # years 2026..2036
 NTRIALS = 1000  # Monte Carlo trials
 
 
+def fix_axes(chart, yfmt="#,##0", xfmt=None):
+    """openpyxl charts omit axis tick labels unless these are set explicitly."""
+    for ax, fmtv in ((chart.y_axis, yfmt), (chart.x_axis, xfmt)):
+        ax.delete = False
+        ax.tickLblPos = "nextTo"
+        if fmtv:
+            ax.number_format = fmtv
+            ax.sourceLinked = False
+
+
 def w(ws, r, c, value, font=BLACK, fmt=None, fill=None, bold=False):
     if isinstance(value, str) and value.startswith("=") and " " in value[:3]:
         raise ValueError(f"text cell would be parsed as a formula: {value!r}")
@@ -108,7 +118,10 @@ def build_inputs(ws):
     for name, rev0, tgt, m0, mT, s2c, v0, vbar in SEGS:
         inp(f"{name}: revenue 2025", rev0, "Prospectus, segment results (FWP acc. 0001628280-26-041013)")
         inp(f"{name}: revenue target 2036", tgt, "Damodaran, June 2026 valuation (paper Sec. 4)")
-        inp(f"{name}: operating margin 2025", m0, "Prospectus, segment results", PCT)
+        msrc = {"Launch": "Development-adjusted; accounting segment margin was -16% after $3.0B Starship R&D (prospectus)",
+                "Starlink": "Development-adjusted; accounting segment margin +39% (prospectus)",
+                "xAI": "Development-adjusted; accounting segment margin about -198% (prospectus). Weighted, the three match Damodaran's R&D-capitalized 21.5% consolidated start"}[name]
+        inp(f"{name}: operating margin 2025", m0, msrc, PCT)
         inp(f"{name}: terminal margin", mT, "Comparables-disciplined (paper Sec. 4); xAI 25% is the boundary case", PCT)
         inp(f"{name}: sales-to-capital", s2c, "Damodaran convention (paper Table 1)", "0.0")
         inp(f"{name}: revenue volatility, initial", v0, "Calibrated so dispersion lies between the two published simulations (Table 1)", PCT)
@@ -501,6 +514,7 @@ def build_montecarlo(ws):
     chart.gapWidth = 10
     chart.height = 8
     chart.width = 15
+    fix_axes(chart, yfmt="#,##0", xfmt="0.0")
     ws.add_chart(chart, "P15")
 
 
@@ -546,6 +560,10 @@ def build_inversion(ws):
                        f"/(INDEX(E9:E{last},MATCH($B$5,E9:E{last},-1))"
                        f"-INDEX(E9:E{last},MATCH($B$5,E9:E{last},-1)+1))*0.0025", fmt=PCT2, bold=True)
     w(ws, last + 2, 3, "Python check: 6.86% at $135", font=GREY)
+    w(ws, last + 4, 1, "How the implied rate is computed: values fall as the rate rises, so MATCH"
+                       " finds the last grid row where value is still above the target; INDEX reads"
+                       " that row's rate and value; the formula then interpolates linearly to the"
+                       " crossing between that row and the next.", font=GREY)
     w(ws, last + 3, 1, "Equity premium", bold=True)
     w(ws, last + 3, 2, f"=B{last + 2}-{IN['Terminal growth']}", fmt=PCT2, bold=True)
     w(ws, last + 3, 3, "over the 4.56% risk-free rate", font=GREY)
@@ -572,6 +590,7 @@ def build_inversion(ws):
     chart.set_categories(cats)
     chart.height = 9
     chart.width = 16
+    fix_axes(chart, yfmt="#,##0", xfmt="0.0%")
     ws.add_chart(chart, f"H{12 + len(ref)}")
 
 
@@ -617,6 +636,7 @@ def build_sop(ws):
     chart.legend = None
     chart.height = 9
     chart.width = 17
+    fix_axes(chart, yfmt="#,##0")
     ws.add_chart(chart, "E3")
 
 
@@ -642,6 +662,11 @@ def build_readme(ws):
         ("  Inversion   — total value across discount rates and the implied rate at the target", BLACK),
         ("                price (paper Section 6). At $135 this reads about 6.86%.", BLACK),
         ("  SumOfParts  — the supported range against the offer (paper Section 6).", BLACK),
+        ("", BLACK),
+        ("Excel is all you need: change the blue inputs and every tab recalculates live. The only", BLACK),
+        ("cells that do NOT recalculate are the three imported xAI values on the Inputs tab", BLACK),
+        ("(abandonment option, venture floor, winning-model value): they come from the Python model,", BLACK),
+        ("so after large changes to the xAI assumptions, treat them as stale.", BLACK),
         ("", BLACK),
         ("Colors: blue = inputs; black = formulas; green = links across tabs; grey italics = the", BLACK),
         ("Python pipeline's values, quoted for checking. The Monte Carlo uses Excel's unseeded RAND(),", BLACK),
