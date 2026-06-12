@@ -52,6 +52,17 @@ discount rate from Damodaran's June 2026 valuation; margins disciplined by liste
 AI-infrastructure comparables; the launch market from government budget documents). No parameter
 is tuned to hit a target value.
 
+## Excel companion
+
+`excel/spacex_valuation.xlsx` implements the valuation in formulas for readers who prefer Excel:
+the DCF as a classic year-by-year waterfall with a step-by-step terminal value, the expansion
+claims by their closed forms, the Mars probability tree, a live 1,000-trial Monte Carlo of the
+correlated segment model (press F9), the sum of parts, and the inversion (implied discount rate
+at any target price, no macros). Inputs are blue on the Inputs tab with sources; grey italics
+quote the Python pipeline's values for checking. The xAI abandonment option is imported (its
+least-squares Monte Carlo has no formula representation). Regenerate the workbook after a
+recalibration with `python code/python/make_excel_workbook.py` (requires openpyxl).
+
 ## Playing with the parameters
 
 To rerun the valuation under your own assumptions:
