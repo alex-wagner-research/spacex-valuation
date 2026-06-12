@@ -71,7 +71,9 @@ STYLE = {  # category -> (marker, color, label)
 }
 
 
-ARK_COST_OF_EQUITY = 0.10   # OUR assumed rate to present-value ARK's 2030 figure (ARK gives none)
+ARK_COST_OF_EQUITY = 0.0825  # the paper's baseline cost of capital, used to present-value ARK's
+                             # 2030 figure (ARK gives no rate; the paper's footnote reports the
+                             # 10 and 12 percent alternatives)
 CROSS_DATE = 2026.42        # the IPO-time cross-section snapshot
 
 
@@ -80,7 +82,8 @@ def ark_present_value():
     ark = next(d for d in DATA if d[0] == "forward")
     years = ark[6] - CROSS_DATE
     f = (1 + ARK_COST_OF_EQUITY) ** years
-    return (f"ARK 2030 (PV @{ARK_COST_OF_EQUITY:.0%})", ark[3] / f, ark[4] / f, ark[5] / f)
+    return (f"ARK 2030 (PV @{ARK_COST_OF_EQUITY * 100:.2f}%)",
+            ark[3] / f, ark[4] / f, ark[5] / f)
 
 
 def main():
@@ -106,46 +109,45 @@ def main():
                      ha="center", fontsize=8, color="0.3")
     axA.annotate("IPO\n$1.77T", (2026.42, 1.77), textcoords="offset points", xytext=(-2, 6),
                  ha="right", fontsize=8.5, color="k", fontweight="bold")
-    # first-day trading range (drawn only once data/raw/post_ipo_day1.json is filled)
-    d1 = json.loads(DAY1.read_text(encoding="utf-8-sig")) if DAY1.exists() else {}
-    ymax = 2.0
-    if d1.get("close") is not None:
-        lo_t = float(d1["intraday_low"]) * SHARES_M / 1e6
-        hi_t = float(d1["intraday_high"]) * SHARES_M / 1e6
-        cl_t = float(d1["close"]) * SHARES_M / 1e6
-        x1 = 2026.52
-        axA.plot([x1, x1], [lo_t, hi_t], "-", color="#B8860B", lw=2.4, alpha=0.9, zorder=3,
-                 solid_capstyle="butt")
-        axA.plot([x1], [cl_t], marker="D", color="#B8860B", ms=6, zorder=4)
-        axA.annotate(f"day-1 range,\nclose ${cl_t:.2f}T", (x1, cl_t),
-                     textcoords="offset points", xytext=(7, -4), ha="left", fontsize=8.5,
-                     color="#B8860B", fontweight="bold")
-        ymax = max(ymax, hi_t * 1.05)
     axA.set_xlabel("Year")
     axA.set_ylabel("Total valuation (\\$ trillion)")
     axA.set_title("(a) SpaceX private-market and IPO valuation trajectory")
-    axA.set_xlim(2020.7, 2027.15)
-    axA.set_ylim(0, ymax)
+    axA.set_xlim(2020.7, 2026.9)
+    axA.set_ylim(0, 2.0)
 
     # ---------- Panel (b): the IPO-time cross-section, labeled, with ranges (candles) ----------
     cross = [(d[1], d[3], d[4], d[5]) for d in DATA
              if d[6] is None and d[2] >= 2026.3
              and d[0] in ("independent", "ipo", "secondary", "prediction")]
     cross.append(ark_present_value())                          # add present-valued ARK
+    # the observed first trading day (gold row; drawn once data/raw/post_ipo_day1.json is filled)
+    DAY1_LABEL = "First trading day (June 12)"
+    d1 = json.loads(DAY1.read_text(encoding="utf-8-sig")) if DAY1.exists() else {}
+    if d1.get("close") is not None:
+        cross.append((DAY1_LABEL, float(d1["close"]) * SHARES_M / 1000,
+                      float(d1["intraday_low"]) * SHARES_M / 1000,
+                      float(d1["intraday_high"]) * SHARES_M / 1000))
     cross.sort(key=lambda r: r[1])
     names = [r[0] for r in cross]
     yy = np.arange(len(cross))
     for i, (src, val, lo, hi) in enumerate(cross):
+        is_day1 = src == DAY1_LABEL
         if lo is not None and hi is not None:                  # the "candle": a range whisker
-            axB.plot([lo / 1000, hi / 1000], [i, i], "-", color="0.55", lw=2.0, alpha=0.7, zorder=1)
+            axB.plot([lo / 1000, hi / 1000], [i, i], "-",
+                     color="#B8860B" if is_day1 else "0.55", lw=2.0, alpha=0.8, zorder=1)
         is_ipo = src == "IPO price"
-        axB.scatter([val / 1000], [i], s=150 if is_ipo else 80,
-                    marker="*" if is_ipo else "o",
-                    color="k" if is_ipo else "C0", edgecolor="white", linewidth=0.6, zorder=3)
+        axB.scatter([val / 1000], [i], s=150 if is_ipo else 90 if is_day1 else 80,
+                    marker="*" if is_ipo else "D" if is_day1 else "o",
+                    color="k" if is_ipo else "#B8860B" if is_day1 else "C0",
+                    edgecolor="white", linewidth=0.6, zorder=3)
     axB.axvline(1.77, color="k", ls="--", lw=0.9, alpha=0.5)
     axB.text(1.79, 0.1, "IPO price", fontsize=8.5, color="0.3", va="bottom", ha="left")
     axB.set_yticks(yy)
     axB.set_yticklabels(names, fontsize=9)
+    for tick, nm in zip(axB.get_yticklabels(), names):
+        if nm == DAY1_LABEL:
+            tick.set_fontweight("bold")
+            tick.set_color("#B8860B")
     axB.set_xlabel("Total equity valuation at the IPO (\\$ trillion)")
     axB.set_title("(b) Who values SpaceX at what, June 2026 (range = stated bear/bull)")
     axB.set_xlim(0, 2.6)

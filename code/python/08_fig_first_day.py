@@ -112,9 +112,9 @@ def main():
     rows += [(sx_lab, sx_ret, sx_money, "sx")]
     rows.sort(key=lambda r: r[1])
 
-    plt.rcParams.update({"font.size": 10.5, "axes.spines.top": False, "axes.spines.right": False,
+    plt.rcParams.update({"font.size": 12, "axes.spines.top": False, "axes.spines.right": False,
                          "figure.dpi": 120, "savefig.bbox": "tight"})
-    fig, (ax, axm) = plt.subplots(1, 2, figsize=(11.2, 6.2), sharey=True,
+    fig, (ax, axm) = plt.subplots(1, 2, figsize=(10.6, 9.4), sharey=True,
                                   gridspec_kw={"width_ratios": [2.1, 1.0], "wspace": 0.04})
 
     for i, (lab, r, extra, kind) in enumerate(rows):
@@ -126,28 +126,28 @@ def main():
                             elinewidth=1.0, capsize=3, zorder=4)
             else:
                 ax.plot(r, i, marker="s", ms=5.5, color=color, zorder=4)
-            ax.text(r + 3, i, f"{r:.0f}%", va="center", fontsize=8.5, color=color, zorder=6,
+            ax.text(r + 3, i, f"{r:.0f}%", va="center", fontsize=10, color=color, zorder=6,
                     bbox=dict(facecolor="white", edgecolor="none", pad=0.4, alpha=0.85))
         else:
             ax.hlines(i, 0, r, color=color, lw=1.1, alpha=0.55)
             ax.plot(r, i, marker="D" if kind == "sx" else "o", ms=9 if kind == "sx" else 6,
                     color=color, zorder=5)
             neg = r < 0
-            ax.text(r - 3 if neg else r + 3, i, f"{r:+.0f}%", va="center", fontsize=8.5,
+            ax.text(r - 3 if neg else r + 3, i, f"{r:+.0f}%", va="center", fontsize=10,
                     ha="right" if neg else "left",
                     color=color if kind == "sx" else "0.25",
                     fontweight="bold" if kind == "sx" else "normal")
         # ---- panel (b): money left on the table ----
         if kind == "deal" and extra is not None:
             axm.barh(i, extra, height=0.62, color="C0", alpha=0.65)
-            axm.text(extra + 0.18, i, f"{extra:.1f}", va="center", fontsize=8.5, color="0.25")
+            axm.text(extra + 0.18, i, f"{extra:.1f}", va="center", fontsize=10, color="0.25")
         elif kind == "sx":
             axm.barh(i, extra, height=0.62, color=GOLD, alpha=0.85)
-            axm.text(extra + 0.18, i, f"{extra:.1f}", va="center", fontsize=8.5,
+            axm.text(extra + 0.18, i, f"{extra:.1f}", va="center", fontsize=10,
                      color=GOLD, fontweight="bold")
 
     ax.set_yticks(range(len(rows)))
-    ax.set_yticklabels([lab for lab, *_ in rows], fontsize=9.5)
+    ax.set_yticklabels([lab for lab, *_ in rows], fontsize=11)
     for tick, (lab, _, _, kind) in zip(ax.get_yticklabels(), rows):
         if kind == "sx":
             tick.set_fontweight("bold")
@@ -158,7 +158,7 @@ def main():
     ax.axvline(0, color="0.2", lw=0.8)
     ax.set_xlabel("(a) First-day return, offer to first close (percent)")
     ax.set_xlim(-40, max(r for _, r, *_ in rows) * 1.13)
-    axm.set_xlabel("(b) Money left on the table ($ billion)")
+    axm.set_xlabel("(b) Money left on the table ($bn)")
     axm.set_xlim(0, sx_money * 1.14)
     axm.tick_params(left=False)
     FIGS.mkdir(parents=True, exist_ok=True)
