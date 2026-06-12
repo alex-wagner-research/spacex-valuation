@@ -18,6 +18,7 @@ confidence flag; MEDIUM/LOW rows were re-verified against their sources before p
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import matplotlib
@@ -26,6 +27,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
+DAY1 = ROOT / "data" / "raw" / "post_ipo_day1.json"
+SHARES_M = 13091.0          # post-IPO shares outstanding (M), as everywhere in the paper
 
 # (category, source, decimal_date, value_$B, low_$B, high_$B, target_year_or_None, method, real_opt, confidence)
 DATA = [
@@ -103,11 +106,26 @@ def main():
                      ha="center", fontsize=8, color="0.3")
     axA.annotate("IPO\n$1.77T", (2026.42, 1.77), textcoords="offset points", xytext=(-2, 6),
                  ha="right", fontsize=8.5, color="k", fontweight="bold")
+    # first-day trading range (drawn only once data/raw/post_ipo_day1.json is filled)
+    d1 = json.loads(DAY1.read_text(encoding="utf-8-sig")) if DAY1.exists() else {}
+    ymax = 2.0
+    if d1.get("close") is not None:
+        lo_t = float(d1["intraday_low"]) * SHARES_M / 1e6
+        hi_t = float(d1["intraday_high"]) * SHARES_M / 1e6
+        cl_t = float(d1["close"]) * SHARES_M / 1e6
+        x1 = 2026.52
+        axA.plot([x1, x1], [lo_t, hi_t], "-", color="#B8860B", lw=2.4, alpha=0.9, zorder=3,
+                 solid_capstyle="butt")
+        axA.plot([x1], [cl_t], marker="D", color="#B8860B", ms=6, zorder=4)
+        axA.annotate(f"day-1 range,\nclose ${cl_t:.2f}T", (x1, cl_t),
+                     textcoords="offset points", xytext=(7, -4), ha="left", fontsize=8.5,
+                     color="#B8860B", fontweight="bold")
+        ymax = max(ymax, hi_t * 1.05)
     axA.set_xlabel("Year")
     axA.set_ylabel("Total valuation (\\$ trillion)")
     axA.set_title("(a) SpaceX private-market and IPO valuation trajectory")
-    axA.set_xlim(2020.7, 2026.9)
-    axA.set_ylim(0, 2.0)
+    axA.set_xlim(2020.7, 2027.15)
+    axA.set_ylim(0, ymax)
 
     # ---------- Panel (b): the IPO-time cross-section, labeled, with ranges (candles) ----------
     cross = [(d[1], d[3], d[4], d[5]) for d in DATA
