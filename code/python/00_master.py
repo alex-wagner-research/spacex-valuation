@@ -7,7 +7,7 @@ Capital", in the order the paper uses the outputs.
 
 Steps, their paper exhibits, and their data dependencies:
 
-  0  fetch prospectus      data/raw/spacex_prospectus_fwp_20260605.htm from SEC EDGAR (if missing)
+  0  fetch S-1 prospectus  data/raw/s1_exhibits/spaceexplorationtechnologi.htm from SEC EDGAR (if missing)
   1  01_prospectus_text_analysis.py   Figure 2 (term frequencies) + term-count JSON
   2  02_spacex_landscape.py           Figure 1 (valuation landscape) + sourced catalog CSV
   3  03_decomposition.py              Figures 3-4 (abandonment distribution, waterfall) +
@@ -42,9 +42,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 
-FWP = ROOT / "data" / "raw" / "spacex_prospectus_fwp_20260605.htm"
-FWP_URL = ("https://www.sec.gov/Archives/edgar/data/1181412/000162828026041013/"
-           "japanfwp_06042026.htm")
+S1 = ROOT / "data" / "raw" / "s1_exhibits" / "spaceexplorationtechnologi.htm"
+S1_URL = ("https://www.sec.gov/Archives/edgar/data/1181412/000162828026036936/"
+          "spaceexplorationtechnologi.htm")
 DAY1 = ROOT / "data" / "raw" / "post_ipo_day1.json"
 
 STEPS = ["01_prospectus_text_analysis.py", "02_spacex_landscape.py", "03_decomposition.py",
@@ -53,14 +53,14 @@ STEPS = ["01_prospectus_text_analysis.py", "02_spacex_landscape.py", "03_decompo
 
 
 def fetch_prospectus():
-    if FWP.exists() and FWP.stat().st_size > 1_000_000:
-        print(f"[0] prospectus present: {FWP.name} ({FWP.stat().st_size:,} bytes)")
+    if S1.exists() and S1.stat().st_size > 1_000_000:
+        print(f"[0] prospectus present: {S1.name} ({S1.stat().st_size:,} bytes)")
         return
-    print(f"[0] downloading prospectus from EDGAR: {FWP_URL}")
-    req = urllib.request.Request(FWP_URL, headers={"User-Agent": "ValuingSpaceX replication alexander.wagner@df.uzh.ch"})
-    FWP.parent.mkdir(parents=True, exist_ok=True)
-    FWP.write_bytes(urllib.request.urlopen(req).read())
-    print(f"    saved {FWP.stat().st_size:,} bytes")
+    print(f"[0] downloading S-1 prospectus from EDGAR: {S1_URL}")
+    req = urllib.request.Request(S1_URL, headers={"User-Agent": "ValuingSpaceX replication alexander.wagner@df.uzh.ch"})
+    S1.parent.mkdir(parents=True, exist_ok=True)
+    S1.write_bytes(urllib.request.urlopen(req).read())
+    print(f"    saved {S1.stat().st_size:,} bytes")
 
 
 def day1_filled() -> bool:

@@ -7,8 +7,8 @@ Also writes a README.md index there with the official exhibit descriptions parse
 EDGAR filing-index page. The R*.htm XBRL renderings are skipped (financial-data viewer
 artifacts, not filing documents).
 
-The free-writing prospectus (accession 0001628280-26-041013), which carries the full
-preliminary prospectus text, lives separately at data/raw/spacex_prospectus_fwp_20260605.htm.
+The main S-1 body (spaceexplorationtechnologi.htm) carries the full preliminary prospectus text,
+including the financial-statement notes; it is the source for the term-frequency analysis (step 1).
 """
 
 from __future__ import annotations
@@ -50,10 +50,10 @@ def main():
     lines = ["# SpaceX Form S-1 -- complete document set (searchable HTML)", "",
              f"Source: SEC EDGAR accession 0001628280-26-036936 (Form S-1, filed 2026-05-20),",
              f"downloaded from {BASE}/ .", "",
-             "The full preliminary prospectus text (with financial-statement notes) is in the",
-             "free-writing prospectus at `../spacex_prospectus_fwp_20260605.htm` (searchable HTML;",
-             "an illustrated PDF rendering is next to it). Prospectus page images are in",
-             "`../prospectus/`.", "", "| File | Type | Description |", "|---|---|---|"]
+             "The full preliminary prospectus text (with financial-statement notes) is the main",
+             "S-1 body, `spaceexplorationtechnologi.htm` in this folder; it is the source for the",
+             "term-frequency analysis. Prospectus page images are in `../prospectus/`.",
+             "", "| File | Type | Description |", "|---|---|---|"]
     for n in sorted(names):
         typ, desc = docs[n]
         out = DEST / n

@@ -173,7 +173,7 @@ def build_inputs(ws):
 
     head("Segments (2025 figures from the prospectus; targets, margins, volatilities per paper Table 1)")
     for name, rev0, tgt, m0, mT, s2c, v0, vbar in SEGS:
-        inp(f"{name}: revenue 2025", rev0, "Prospectus, segment results (FWP acc. 0001628280-26-041013)")
+        inp(f"{name}: revenue 2025", rev0, "Prospectus, segment results (S-1 acc. 0001628280-26-036936)")
         inp(f"{name}: revenue target 2036", tgt, "Damodaran, June 2026 valuation (paper Sec. 4)")
         msrc = {"Launch": "Development-adjusted; accounting segment margin was -16% after $3.0B Starship R&D (prospectus)",
                 "Starlink": "Development-adjusted; accounting segment margin +39% (prospectus)",

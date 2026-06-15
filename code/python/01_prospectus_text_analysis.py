@@ -1,16 +1,16 @@
 ﻿"""
 01_prospectus_text_analysis.py  --  what does the SpaceX prospectus actually talk about?
 
-Counts exact term/concept frequencies in the SpaceX prospectus text (from the June 5, 2026 FWP,
-SEC EDGAR accession 0001628280-26-041013, which embeds the full prospectus including the financial-
-statement notes; the FWP wrapper for the Japanese tranche adds negligible English text). Produces:
+Counts exact term/concept frequencies in the SpaceX prospectus text (the Form S-1 main document,
+SEC EDGAR accession 0001628280-26-036936, the registration statement filed 2026-05-20 that carries
+the full preliminary prospectus including the financial-statement notes). Produces:
   1. exact counts for a curated set of concepts (Mars vs AI vs Starlink vs ...),
   2. the top content words overall (stopwords removed) -- "what the document is about",
   3. a figure: horizontal bar chart of concept frequencies for the paper,
   4. a JSON with all counts for macro-driven numbers.
 
 NOTE for the paper: rerun on the final 424(b) prospectus once it is filed; counts here are from the
-FWP copy of the preliminary prospectus. Multi-word concepts are counted with regex word boundaries,
+preliminary prospectus in the S-1. Multi-word concepts are counted with regex word boundaries,
 case-insensitive; "AI" is counted as the standalone token (word-boundary, so 'said'/'aim' excluded).
 """
 
@@ -27,7 +27,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "data" / "raw" / "spacex_prospectus_fwp_20260605.htm"
+SRC = ROOT / "data" / "raw" / "s1_exhibits" / "spaceexplorationtechnologi.htm"
 
 
 class TextExtract(HTMLParser):

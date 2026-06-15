@@ -59,7 +59,7 @@ def main():
     # --- headline / base model ---
     cmd("ipoT", "1.77")
     cmd("ipoShare", "135")
-    # Prospectus financials (FWP, consolidated statements + risk factors): FY2025 total revenues
+    # Prospectus financials (S-1, consolidated statements + risk factors): FY2025 total revenues
     # $18,674M; FY2025 net loss $(4,937)M ("We incurred net losses of $(4,937) million ... for the
     # year[] ended December 31, 2025").
     cmd("revLatestB", "18.7")
