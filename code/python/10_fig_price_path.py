@@ -1,15 +1,19 @@
 r"""
 10_fig_price_path.py -- the share-price path and the expected return it implies, by trading day.
 
-For each trading day's closing price in data/raw/post_ipo_series.json (offer + the listed closes),
-invert the model -- operating inputs and the option layer held at base, exactly as in
+Reads data/raw/post_ipo_series.json (offer + daily OHLC bars + expected near-term events). For
+each price it inverts the model -- operating inputs and the option layer held at base, exactly as
 04_inverse_valuation.py and 09_post_ipo_update.py -- for the discount rate that equates the model
-value to that day's capitalization. The figure plots the closing price (left axis, rising) against
-the implied expected return / cost of capital (right axis, falling), with the 8.25 percent baseline
-marked; the gap between the two is the message: as the price runs above the offer the implied
-return falls further below the baseline, and since no new operating information has arrived, each
-step is a repricing of risk, not a cash-flow revision. The window ends at the first post-IPO
-earnings release (after which new fundamentals break the hold-fundamentals-fixed inversion).
+value to that capitalization. The figure shows, on a calendar axis that runs from the offer to the
+first expected earnings release:
+  * left axis: the daily price as an open-high-low-close bar (and the offer as a point);
+  * right axis: the implied expected return at each close (with a whisker for the intraday range),
+    against the 8.25 percent baseline cost of capital;
+  * vertical markers for the expected near-term events (listed options, index inclusion, earnings).
+Both axes start at zero. The message is the inverse co-movement: a higher price is a lower implied
+return and a lower price a higher one, each move a repricing of risk rather than a cash-flow
+revision. The window ends at the first earnings release, after which new fundamentals break the
+hold-fundamentals-fixed inversion.
 
 Writes paper/draft/output/figures/fig_price_path.pdf|png and paper/draft/output/pricepath.tex.
 """
@@ -17,11 +21,12 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,94 +39,118 @@ FIGS = ROOT / "paper" / "draft" / "output" / "figures"
 OUT_TEX = ROOT / "paper" / "draft" / "output" / "pricepath.tex"
 RF = 4.56
 BASELINE = 8.25
+PMAX = 270.0          # left-axis top: double the $135 offer
+RMAX = 9.0            # right-axis top: headroom above the 8.25% baseline
 NAVY, ORANGE = "#2E4057", "#E85D04"
 
 _dec = json.loads((ROOT / "output" / "tables" / "decomposition.json").read_text())
 OPT_BASE = sum(v for k, v in _dec["options"].items() if k != "Abandonment")
 
 
-def implied_pct(cap_musd: float):
-    w = _solve(FirmParams(), cap_musd, OPT_BASE)
+def implied_pct(price: float, sh: float):
+    w = _solve(FirmParams(), price * sh, OPT_BASE)
     return w * 100 if w else None
 
 
-def fmt(d: str) -> str:                                   # 2026-06-12 -> Jun 12
-    return datetime.strptime(d, "%Y-%m-%d").strftime("%b %-d") if sys.platform != "win32" \
-        else datetime.strptime(d, "%Y-%m-%d").strftime("%b ") + str(int(d[-2:]))
+def D(s: str) -> datetime:
+    return datetime.strptime(s, "%Y-%m-%d")
 
 
 def main():
     d = json.loads(SERIES.read_text(encoding="utf-8-sig"))
-    offer = float(d["offer_price"])
-    sh = float(d["shares_m"])
-    closes = d["closes"]
-
-    labels = ["Offer"] + [fmt(c["date"]) for c in closes]
-    prices = [offer] + [float(c["close"]) for c in closes]
-    caps = [p * sh for p in prices]                       # $M
-    wacc = [implied_pct(cap) for cap in caps]
-    x = list(range(len(prices)))
+    offer = float(d["offer_price"]); sh = float(d["shares_m"])
+    odate = D(d["offer_date"]); wend = D(d["window_end"])
+    bars = d["bars"]; events = d.get("events", [])
 
     plt.rcParams.update({"font.size": 10.5, "figure.dpi": 120, "savefig.bbox": "tight"})
-    fig, axp = plt.subplots(figsize=(8.0, 5.0))
+    fig, axp = plt.subplots(figsize=(9.2, 5.4))
     axr = axp.twinx()
     for ax in (axp, axr):
         ax.spines["top"].set_visible(False)
 
-    # left: price
-    axp.plot(x, prices, "-o", color=NAVY, lw=1.8, ms=6, zorder=3)
-    axp.set_ylabel("Closing price (\\$ per share)", color=NAVY)
-    axp.tick_params(axis="y", labelcolor=NAVY)
-    for xi, p in zip(x, prices):
-        axp.annotate(f"\\${p:.0f}", (xi, p), textcoords="offset points", xytext=(0, 8),
-                     ha="center", fontsize=8.5, color=NAVY)
+    tw = timedelta(days=0.9)                              # OHLC open/close tick length
 
-    # right: implied expected return
-    axr.plot(x, wacc, "--s", color=ORANGE, lw=1.8, ms=6, zorder=3)
+    # ---- left axis: price ----
+    # offer point + faint close-trajectory line
+    cx = [odate] + [D(b["date"]) for b in bars]
+    cc = [offer] + [float(b["close"]) for b in bars]
+    axp.plot(cx, cc, "-", color=NAVY, lw=1.0, alpha=0.35, zorder=2)
+    axp.plot(odate, offer, "o", color=NAVY, ms=6, zorder=4)
+    axp.annotate(f"Offer\n\\${offer:.0f}", (odate, offer), textcoords="offset points",
+                 xytext=(0, -10), ha="center", va="top", fontsize=8.5, color=NAVY)
+    # OHLC bars
+    for b in bars:
+        x = D(b["date"])
+        axp.vlines(x, b["low"], b["high"], color=NAVY, lw=1.4, zorder=3)
+        axp.plot([x - tw, x], [b["open"], b["open"]], color=NAVY, lw=1.4, zorder=3)
+        axp.plot([x, x + tw], [b["close"], b["close"]], color=NAVY, lw=1.4, zorder=3)
+        axp.annotate(f"\\${b['close']:.0f}", (x, b["high"]), textcoords="offset points",
+                     xytext=(0, 5), ha="center", fontsize=8.5, color=NAVY)
+    axp.set_ylabel("Share price (\\$)", color=NAVY)
+    axp.tick_params(axis="y", labelcolor=NAVY)
+    axp.set_ylim(0, PMAX)
+
+    # ---- right axis: implied expected return ----
+    rc = [implied_pct(offer, sh)] + [implied_pct(float(b["close"]), sh) for b in bars]
+    axr.plot(cx, rc, "--s", color=ORANGE, lw=1.4, ms=6, zorder=4)
+    axr.annotate(f"{rc[0]:.2f}%", (odate, rc[0]), textcoords="offset points", xytext=(0, 8),
+                 ha="center", fontsize=8.5, color=ORANGE)
+    for j, b in enumerate(bars):
+        x = D(b["date"])
+        r_hi = implied_pct(float(b["high"]), sh)         # at intraday high price -> lower return
+        r_lo = implied_pct(float(b["low"]), sh)          # at intraday low price  -> higher return
+        axr.vlines(x, r_hi, r_lo, color=ORANGE, lw=1.0, alpha=0.4, zorder=2)
+        if j == len(bars) - 1:                           # label only the latest, into open space
+            rcl = implied_pct(float(b["close"]), sh)
+            axr.annotate(f"{rcl:.2f}%", (x, rcl), textcoords="offset points", xytext=(9, 0),
+                         ha="left", va="center", fontsize=8.5, color=ORANGE)
+    axr.axhline(BASELINE, color="0.55", lw=0.9, ls=":", zorder=1)
+    axr.annotate(f"baseline cost of capital {BASELINE:.2f}%", (wend, BASELINE),
+                 textcoords="offset points", xytext=(-3, 3), ha="right", va="bottom",
+                 fontsize=8, color="0.45")
     axr.set_ylabel("Implied expected return (cost of capital), percent", color=ORANGE)
     axr.tick_params(axis="y", labelcolor=ORANGE)
-    axr.axhline(BASELINE, color="0.55", lw=0.9, ls=":", zorder=1)
-    axr.annotate(f"baseline {BASELINE:.2f}%", (x[-1], BASELINE), textcoords="offset points",
-                 xytext=(4, 4), ha="right", va="bottom", fontsize=8, color="0.45")
-    for xi, w in zip(x, wacc):
-        if w is not None:
-            axr.annotate(f"{w:.2f}%", (xi, w), textcoords="offset points", xytext=(0, -14),
-                         ha="center", fontsize=8.5, color=ORANGE)
+    axr.set_ylim(0, RMAX)
 
-    axp.set_xticks(x)
-    axp.set_xticklabels(labels)
-    axp.set_xlim(-0.4, len(x) - 0.6)
-    # headroom so annotations don't clip
-    pr_lo, pr_hi = min(prices), max(prices)
-    axp.set_ylim(pr_lo - (pr_hi - pr_lo) * 0.18 - 5, pr_hi + (pr_hi - pr_lo) * 0.22 + 5)
-    wv = [w for w in wacc if w is not None]
-    axr.set_ylim(min(wv) - (max(wv) - min(wv)) * 0.55 - 0.2, max(BASELINE, max(wv)) + 0.25)
+    # ---- expected-event markers ----
+    for e in events:                                     # in the empty lower band, reading upward
+        x = D(e["date"])
+        if not (odate <= x <= wend):
+            continue
+        axp.axvline(x, color="0.6", lw=0.8, ls="--", zorder=1)
+        axp.annotate(e["label"], (x, 6), rotation=90, va="bottom", ha="center",
+                     fontsize=7.2, color="0.45")
+
+    # ---- x axis ----
+    axp.set_xlim(odate - timedelta(days=1), wend + timedelta(days=1))
+    axp.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
+    axp.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
+    fig.autofmt_xdate(rotation=0, ha="center")
 
     FIGS.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
     fig.savefig(FIGS / "fig_price_path.pdf")
     fig.savefig(FIGS / "fig_price_path.png")
 
-    # macros
-    last = closes[-1]
-    last_cap_t = float(last["close"]) * sh / 1e6
-    last_w = implied_pct(float(last["close"]) * sh)
+    # ---- macros ----
+    last = bars[-1]
+    last_w = implied_pct(float(last["close"]), sh)
     L = ["% Auto-generated by 10_fig_price_path.py; do not edit by hand.",
          f"\\newcommand{{\\ppFirstDate}}{{June 12}}",
-         f"\\newcommand{{\\ppLastDate}}{{{fmt(last['date'])}}}",
-         f"\\newcommand{{\\ppNDays}}{{{len(closes)}}}",
+         f"\\newcommand{{\\ppLastDate}}{{{D(last['date']).strftime('%B ') + str(int(last['date'][-2:]))}}}",
+         f"\\newcommand{{\\ppNDays}}{{{len(bars)}}}",
          f"\\newcommand{{\\ppLatestPrice}}{{{float(last['close']):.2f}}}",
-         f"\\newcommand{{\\ppLatestCapT}}{{{last_cap_t:.2f}}}",
+         f"\\newcommand{{\\ppLatestCapT}}{{{float(last['close']) * sh / 1e6:.2f}}}",
          f"\\newcommand{{\\ppLatestWaccPct}}{{{last_w:.2f}}}",
          f"\\newcommand{{\\ppLatestErpPp}}{{{last_w - RF:.2f}}}",
-         f"\\newcommand{{\\ppOfferWaccPct}}{{{implied_pct(offer * sh):.2f}}}"]
+         f"\\newcommand{{\\ppOfferWaccPct}}{{{implied_pct(offer, sh):.2f}}}"]
     OUT_TEX.write_text("\n".join(L) + "\n", encoding="utf-8")
 
-    print(f"path ({len(prices)} points incl. offer):")
-    for lab, p, w in zip(labels, prices, wacc):
-        print(f"  {lab:<8} ${p:>7.2f}  implied {w:.2f}%" if w else f"  {lab:<8} ${p:>7.2f}  --")
+    print(f"path ({len(bars)} trading days + offer):")
+    print(f"  Offer    ${offer:>7.2f}  implied {implied_pct(offer, sh):.2f}%")
+    for b in bars:
+        print(f"  {b['date']}  ${float(b['close']):>7.2f}  implied {implied_pct(float(b['close']), sh):.2f}%")
     print("Figure:", FIGS / "fig_price_path.pdf")
-    print("Macros:", OUT_TEX)
 
 
 if __name__ == "__main__":

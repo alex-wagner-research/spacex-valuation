@@ -1,17 +1,16 @@
 {
   "offer_price": 135.0,
+  "offer_date": "2026-06-11",
   "shares_m": 13091.0,
-  "window_note": "Daily closing prices for SPCX from listing. The figure runs from the offer through the latest close and is meant to END at the first post-IPO earnings release (Q2 2026, ~mid-July 2026); after that, new fundamental information breaks the hold-fundamentals-fixed inversion. Official closes are preferred and are entered by hand here; fetch_series.py appends later days from Yahoo (consolidated close) without overwriting existing dates.",
-  "closes": [
-    {
-      "date": "2026-06-12",
-      "close": 161.11,
-      "source": "Nasdaq official close (FT live blog)"
-    },
-    {
-      "date": "2026-06-15",
-      "close": 192.5,
-      "source": "Nasdaq close (CNBC)"
-    }
+  "window_end": "2026-08-05",
+  "window_note": "Daily OHLC for SPCX from listing. The figure runs from the offer to the window end, which is meant to be the first post-IPO earnings release (Q2 2026), after which new fundamental information breaks the hold-fundamentals-fixed inversion. Closes are hand-entered from official prints; fetch_series.py fills open/high/low (and close where still missing) from Yahoo and never overwrites a hand-entered value. The events list is user-editable; 'expected' dates are estimates to confirm. CRSP/Russell additions are expected to fall in the September reconstitution, outside this window, so they are not listed.",
+  "bars": [
+    {"date": "2026-06-12", "open": 150.00, "high": 176.52, "low": 149.34, "close": 161.11, "close_source": "Nasdaq official (FT live blog)"},
+    {"date": "2026-06-15", "open": 171.81, "high": 192.95, "low": 168.36, "close": 192.50, "close_source": "Nasdaq close (CNBC)"}
+  ],
+  "events": [
+    {"date": "2026-06-16", "label": "Listed options begin", "status": "expected"},
+    {"date": "2026-07-06", "label": "Nasdaq-100 inclusion", "status": "expected"},
+    {"date": "2026-07-30", "label": "Q2 earnings (first release)", "status": "expected"}
   ]
 }
