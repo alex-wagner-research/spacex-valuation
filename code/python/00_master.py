@@ -21,6 +21,9 @@ Steps, their paper exhibits, and their data dependencies:
                                    data/raw/post_ipo_day1.json is filled)
   9  09_post_ipo_update.py            Postscript macros [only if post_ipo_day1.json is filled;
                                    fill it via fetch_day1.py after the June 12, 2026 close]
+ 10  10_fig_price_path.py             Postscript figure (closing price vs implied expected return by
+                                   trading day; reads data/raw/post_ipo_series.json, seeded with
+                                   official closes and extended via fetch_series.py)
 
 After a full run, compile the paper: in paper/draft/, pdflatex + bibtex + pdflatex x2 on main.tex
 (and pdflatex on presentation/valuing_spacex_slides.tex for the deck). The paper's in-text
@@ -49,7 +52,8 @@ DAY1 = ROOT / "data" / "raw" / "post_ipo_day1.json"
 
 STEPS = ["01_prospectus_text_analysis.py", "02_spacex_landscape.py", "03_decomposition.py",
          "04_inverse_valuation.py", "05_physical_implications.py", "06_layer3_sampling.py",
-         "07_make_macros.py", "08_fig_first_day.py", "09_post_ipo_update.py"]
+         "07_make_macros.py", "08_fig_first_day.py", "09_post_ipo_update.py",
+         "10_fig_price_path.py"]
 
 
 def fetch_prospectus():
@@ -67,6 +71,14 @@ def day1_filled() -> bool:
     try:
         d = json.loads(DAY1.read_text(encoding="utf-8-sig"))
         return d.get("open") is not None and d.get("close") is not None
+    except FileNotFoundError:
+        return False
+
+
+def series_filled() -> bool:
+    try:
+        d = json.loads((ROOT / "data" / "raw" / "post_ipo_series.json").read_text(encoding="utf-8-sig"))
+        return bool(d.get("closes"))
     except FileNotFoundError:
         return False
 
@@ -89,6 +101,10 @@ def main():
         if script == "09_post_ipo_update.py" and not day1_filled():
             print(f"[{i}] {script}: SKIPPED (post_ipo_day1.json not filled; run fetch_day1.py "
                   "after the June 12, 2026 close)")
+            continue
+        if script == "10_fig_price_path.py" and not series_filled():
+            print(f"[{i}] {script}: SKIPPED (post_ipo_series.json has no closes; seed it or run "
+                  "fetch_series.py after the close)")
             continue
         t = time.time()
         print(f"[{i}] {script} ...")

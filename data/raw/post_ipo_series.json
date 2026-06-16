@@ -1,0 +1,17 @@
+{
+  "offer_price": 135.0,
+  "shares_m": 13091.0,
+  "window_note": "Daily closing prices for SPCX from listing. The figure runs from the offer through the latest close and is meant to END at the first post-IPO earnings release (Q2 2026, ~mid-July 2026); after that, new fundamental information breaks the hold-fundamentals-fixed inversion. Official closes are preferred and are entered by hand here; fetch_series.py appends later days from Yahoo (consolidated close) without overwriting existing dates.",
+  "closes": [
+    {
+      "date": "2026-06-12",
+      "close": 161.11,
+      "source": "Nasdaq official close (FT live blog)"
+    },
+    {
+      "date": "2026-06-15",
+      "close": 192.5,
+      "source": "Nasdaq close (CNBC)"
+    }
+  ]
+}
