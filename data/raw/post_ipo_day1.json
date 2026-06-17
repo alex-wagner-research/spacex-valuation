@@ -1,10 +1,10 @@
 {
   "date": "2026-06-12",
   "open": 150.0,
-  "close": 161.11,
+  "close": 160.95,
   "intraday_high": 176.52,
-  "intraday_low": 150.0,
+  "intraday_low": 149.34,
   "volume_mshares": 503.9,
   "shares_offered_m": 555.6,
-  "notes": "Open/high/low/volume from Yahoo v8 chart API (fetch_day1.py); close set to the official Nasdaq closing print of 161.11 as reported by the FT live blog of June 12, 2026 (Yahoo's consolidated last trade read 160.95). FT-reported turnover of about $81.5bn is consistent with 503.9M shares at ~$161. Greenshoe NOT exercised as of the close (FT: haul could grow to $86bn if exercised) - update shares_offered_m if that changes before the day-21 follow-up."
+  "notes": "Open/high/low/close are the Nasdaq official historical daily values (api.nasdaq.com; same source of record as post_ipo_series.json via fetch_series.py): open 150.00, high 176.52, low 149.34, official close 160.95. The FT live blog of June 12, 2026 reported 161.11 as the closing print, but Nasdaq's own historical record gives 160.95, which we adopt as the official close. Volume/turnover (about 503.9M shares, ~$81.5bn) remain from the FT live blog. Greenshoe NOT exercised as of the close (FT: haul could grow to $86bn if exercised) - update shares_offered_m if that changes before the day-21 follow-up."
 }

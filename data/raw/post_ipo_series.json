@@ -3,14 +3,50 @@
   "offer_date": "2026-06-11",
   "shares_m": 13091.0,
   "window_end": "2026-08-05",
-  "window_note": "Daily OHLC for SPCX from listing. The figure runs from the offer to the window end, which is meant to be the first post-IPO earnings release (Q2 2026), after which new fundamental information breaks the hold-fundamentals-fixed inversion. Closes are hand-entered from official prints; fetch_series.py fills open/high/low (and close where still missing) from Yahoo and never overwrites a hand-entered value. The events list is user-editable; 'expected' dates are estimates to confirm. CRSP/Russell additions are expected to fall in the September reconstitution, outside this window, so they are not listed.",
+  "window_note": "Daily OHLC for SPCX from listing. The figure runs from the offer to the window end, which is meant to be the first post-IPO earnings release (Q2 2026), after which new fundamental information breaks the hold-fundamentals-fixed inversion. Open/high/low/close/volume are written automatically by fetch_series.py from the Nasdaq official historical API (api.nasdaq.com), the source of record, cross-checked against an independent Yahoo 1-minute reconstruction. The events list is user-editable; 'expected' dates are estimates to confirm, and Nasdaq-100 entry is a review outcome, not a certainty. CRSP/Russell additions are expected to fall in the September reconstitution, outside this window, so they are not listed.",
   "bars": [
-    {"date": "2026-06-12", "open": 150.00, "high": 176.52, "low": 149.34, "close": 161.11, "close_source": "Nasdaq official (FT live blog)"},
-    {"date": "2026-06-15", "open": 171.81, "high": 192.95, "low": 168.36, "close": 192.50, "close_source": "Nasdaq close (CNBC)"}
+    {
+      "date": "2026-06-12",
+      "open": 150.0,
+      "high": 176.52,
+      "low": 149.34,
+      "close": 160.95,
+      "volume": 522131800,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-15",
+      "open": 171.74,
+      "high": 193.0,
+      "low": 168.35,
+      "close": 192.5,
+      "volume": 256226600,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-16",
+      "open": 200.42,
+      "high": 225.64,
+      "low": 195.13,
+      "close": 201.8,
+      "close_source": "Yahoo 1-minute (PROVISIONAL; Nasdaq official pending)"
+    }
   ],
   "events": [
-    {"date": "2026-06-16", "label": "Listed options begin", "status": "expected"},
-    {"date": "2026-07-06", "label": "Nasdaq-100 inclusion", "status": "expected"},
-    {"date": "2026-07-30", "label": "Q2 earnings (first release)", "status": "expected"}
+    {
+      "date": "2026-06-16",
+      "label": "Listed options begin",
+      "status": "expected"
+    },
+    {
+      "date": "2026-07-06",
+      "label": "Nasdaq-100 review",
+      "status": "expected"
+    },
+    {
+      "date": "2026-07-30",
+      "label": "Q2 earnings",
+      "status": "expected"
+    }
   ]
 }

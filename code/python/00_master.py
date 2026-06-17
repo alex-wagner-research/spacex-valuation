@@ -53,7 +53,7 @@ DAY1 = ROOT / "data" / "raw" / "post_ipo_day1.json"
 STEPS = ["01_prospectus_text_analysis.py", "02_spacex_landscape.py", "03_decomposition.py",
          "04_inverse_valuation.py", "05_physical_implications.py", "06_layer3_sampling.py",
          "07_make_macros.py", "08_fig_first_day.py", "09_post_ipo_update.py",
-         "10_fig_price_path.py"]
+         "10_fig_price_path.py", "11_ipo_aftermarket.py", "12_fig_debut_panel.py"]
 
 
 def fetch_prospectus():
@@ -78,7 +78,7 @@ def day1_filled() -> bool:
 def series_filled() -> bool:
     try:
         d = json.loads((ROOT / "data" / "raw" / "post_ipo_series.json").read_text(encoding="utf-8-sig"))
-        return bool(d.get("closes"))
+        return bool(d.get("bars"))
     except FileNotFoundError:
         return False
 
@@ -102,8 +102,9 @@ def main():
             print(f"[{i}] {script}: SKIPPED (post_ipo_day1.json not filled; run fetch_day1.py "
                   "after the June 12, 2026 close)")
             continue
-        if script == "10_fig_price_path.py" and not series_filled():
-            print(f"[{i}] {script}: SKIPPED (post_ipo_series.json has no closes; seed it or run "
+        if script in ("10_fig_price_path.py", "11_ipo_aftermarket.py",
+                      "12_fig_debut_panel.py") and not series_filled():
+            print(f"[{i}] {script}: SKIPPED (post_ipo_series.json has no bars; seed it or run "
                   "fetch_series.py after the close)")
             continue
         t = time.time()
