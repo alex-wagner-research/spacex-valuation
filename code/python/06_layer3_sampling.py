@@ -232,7 +232,7 @@ def main():
                    "wacc_p5_p50_p95_among_reaching":
                        [float(np.percentile(draws_g["wacc"][reach], q)) for q in (5, 50, 95)]
                        if reach.any() else None,
-                   # Referee-2 fix: the JOINT share, computed explicitly (not inferred from
+                   # the JOINT share, computed explicitly (not inferred from
                    # marginals). Upper-half revenue = aggregate 2036 revenue above the midpoint
                    # of its supported band (175-450 -> 312.5).
                    "share_wacc_below_075_among_reaching":

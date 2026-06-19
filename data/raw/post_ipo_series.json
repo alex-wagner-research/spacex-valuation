@@ -25,11 +25,30 @@
     },
     {
       "date": "2026-06-16",
-      "open": 200.42,
+      "open": 200.51,
       "high": 225.64,
       "low": 195.13,
       "close": 201.8,
-      "close_source": "Yahoo 1-minute (PROVISIONAL; Nasdaq official pending)"
+      "volume": 322149300,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-17",
+      "open": 209.84,
+      "high": 213.8,
+      "low": 187.01,
+      "close": 191.82,
+      "volume": 201719500,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-18",
+      "open": 188.39,
+      "high": 190.0,
+      "low": 172.11,
+      "close": 185.0,
+      "volume": 272126800,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
     }
   ],
   "events": [

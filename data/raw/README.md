@@ -20,12 +20,14 @@ pipeline downloads for you rather than redistributing.
   (June 16, 2026) from the public CBOE delayed-quotes feed; pipeline step 12 reads SpaceX's
   at-the-money implied volatility from it for the cross-IPO debut comparison.
 
-The cross-IPO comparison (step 12) also uses two derived inputs that are NOT shipped here:
-`data/clean/ipo_aftermarket.csv` (the first three daily closes of the comparison IPOs, regenerated
-from public sources by `code/python/11_ipo_aftermarket.py`), and `data/clean/ipo_options_iv.csv`
-(each comparison IPO's implied volatility on its first options day, from OptionMetrics IvyDB US via
-WRDS -- regenerate with `code/R/pull_optionmetrics_iv.R` if you have access). Step 12 skips the
-implied-volatility panel when the latter is absent.
+The cross-IPO debut comparison (step 12) is built on an objective, ex-ante set -- the largest U.S.
+common-stock IPOs by gross proceeds since 2000 -- using WRDS data that is NOT redistributed here.
+With WRDS access, regenerate it in three steps: `code/R/pull_sdc_ipo_raw.R` exports the candidate
+IPOs from SDC New Issues; `code/python/build_ipo_universe_from_raw.py` selects the objective universe
+(`data/raw/ipo_universe.csv`); and `code/R/pull_debut_panel_wrds.R` attaches first-day return and
+continuation from CRSP and implied volatility from OptionMetrics IvyDB US by CUSIP
+(`data/clean/ipo_debut_panel.csv`). Step 12 reads that panel; without it, the comparison figure is
+skipped. SpaceX's own implied volatility comes from the shipped CBOE snapshot, not from WRDS.
 
 All other model inputs are calibration constants defined in the code with their sources in
 comments (see the main README).
