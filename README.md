@@ -91,7 +91,14 @@ To rerun the valuation under your own assumptions:
 | 5 | `05_physical_implications.py` | physical-units translations (Table 5) |
 | 6 | `06_layer3_sampling.py` | Figure 6 (joint acceptance sampling); Appendix B |
 | 7 | `07_make_macros.py` | `numbers.tex` + table bodies (Tables 2–5) |
-| 8 | `08_fig_first_day.py` | first-day-returns figure for the postscript |
+| 8 | `08_fig_first_day.py` | an earlier first-day-returns figure, superseded by the debut comparison (step 12) |
+| 9 | `09_post_ipo_update.py` | first-day postscript numbers (`postipo.tex`) — needs `post_ipo_day1.json` |
+| 10 | `10_fig_price_path.py` | Figure 8 (share price vs. the expected return it implies, by trading day) + `pricepath.tex` — needs `post_ipo_series.json` |
+| 11 | `11_ipo_aftermarket.py` | comparison-IPO aftermarket benchmark (`aftermarket.tex`) |
+| 12 | `12_fig_debut_panel.py` | Figure 7 (SpaceX's debut vs. the largest U.S. IPOs) + `optionsiv.tex` + options-launch table |
+
+Steps 9–12 build the paper's "opening days" section and are skipped automatically until their
+post-IPO data exists (see below).
 
 JSON results land in `output/tables/`; figures, table bodies, and `numbers.tex` land in
 `paper/draft/output/`, the folder the paper's LaTeX consumes — the paper's in-text numbers are
@@ -101,14 +108,28 @@ Auxiliary, outside the pipeline: `fetch_s1_exhibits.py` (downloads the complete 
 from EDGAR) and `schwartz_moon.py` (a standalone replication of Schwartz–Moon (2000), the model
 the paper's dynamics descend from).
 
-## After the June 12, 2026 listing
+## After listing: the opening days
 
-The paper gains a short postscript on the first trading day. `fetch_day1.py` fills
-`data/raw/post_ipo_day1.json` with the day's official prices; step 9 (`09_post_ipo_update.py`) then
-computes the postscript numbers — the first-day return against the IPO literature benchmarks and
-the discount rate implied by the closing capitalization — and the figure of step 8 switches its
-SpaceX marker from the projected to the observed value. Until that data exists, the pipeline
-skips step 9 automatically.
+Once trading begins, the paper gains an "opening days" section (paper Section 7), built by steps
+9–12. The pipeline skips each of them automatically until its data exists.
+
+- **Prices.** `fetch_day1.py` writes the first trading day to `data/raw/post_ipo_day1.json`;
+  `fetch_series.py` writes the daily official closes from listing onward to
+  `data/raw/post_ipo_series.json` (the Nasdaq official record, cross-checked against an independent
+  Yahoo 1-minute reconstruction; rerun after each close).
+- **Numbers and figures.** Step 9 computes the first-day postscript numbers (first-day return
+  against the IPO literature, the discount rate implied by the closing capitalization). Step 10
+  draws the share price against the expected return it implies, day by day, with a counterfactual
+  median-IPO path (Figure 8). Step 12 sets SpaceX's debut beside the largest U.S. IPOs by gross
+  proceeds since 2000 across three measures — first-day return, first-week continuation, and
+  implied volatility at options launch (Figure 7).
+- **The comparison set (WRDS; not redistributed).** The objective universe is built with
+  `code/R/pull_sdc_ipo_raw.R` → `build_ipo_universe_from_raw.py` → `code/R/pull_debut_panel_wrds.R`
+  (SDC New Issues, then first-day return and continuation from CRSP and implied volatility from
+  OptionMetrics, matched by CUSIP). That derived data is not shipped; with WRDS access a replicator
+  regenerates it (see `data/raw/README.md`). SpaceX's own implied volatility comes from the shipped
+  CBOE snapshot. Without the panel, step 12 still draws the return panels and omits the
+  implied-volatility markers.
 
 ## License
 

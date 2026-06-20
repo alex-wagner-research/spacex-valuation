@@ -17,13 +17,17 @@ Steps, their paper exhibits, and their data dependencies:
   6  06_layer3_sampling.py            Figure 6 (joint sampling) + acceptance JSON
   7  07_make_macros.py                paper/draft/output/numbers.tex + Tables 2-5 fragments
                                    [needs 1, 3, 4, 5, 6]
-  8  08_fig_first_day.py              Postscript figure (first-day returns; projected marker until
-                                   data/raw/post_ipo_day1.json is filled)
-  9  09_post_ipo_update.py            Postscript macros [only if post_ipo_day1.json is filled;
-                                   fill it via fetch_day1.py after the June 12, 2026 close]
- 10  10_fig_price_path.py             Postscript figure (closing price vs implied expected return by
-                                   trading day; reads data/raw/post_ipo_series.json, seeded with
-                                   official closes and extended via fetch_series.py)
+  8  08_fig_first_day.py              Earlier first-day-returns figure (superseded by step 12)
+  9  09_post_ipo_update.py            First-day postscript macros [only if post_ipo_day1.json is
+                                   filled; fill it via fetch_day1.py after the close]
+ 10  10_fig_price_path.py             Price vs implied expected return by trading day, with a
+                                   counterfactual median-IPO path [reads post_ipo_series.json,
+                                   written by fetch_series.py; rerun after each close]
+ 11  11_ipo_aftermarket.py            Comparison-IPO aftermarket benchmark
+ 12  12_fig_debut_panel.py            SpaceX's debut vs the largest U.S. IPOs by proceeds, across
+                                   first-day return, first-week continuation, and options-launch
+                                   implied vol (CRSP + OptionMetrics via WRDS; the objective universe
+                                   is built by build_ipo_universe_from_raw.py + pull_*_wrds.R)
 
 After a full run, compile the paper: in paper/draft/, pdflatex + bibtex + pdflatex x2 on main.tex
 (and pdflatex on presentation/valuing_spacex_slides.tex for the deck). The paper's in-text

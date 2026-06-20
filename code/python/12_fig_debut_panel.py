@@ -52,7 +52,9 @@ OUT_TEX = ROOT / "paper" / "draft" / "output" / "optionsiv.tex"
 OUT_LAG = ROOT / "paper" / "draft" / "output" / "optionslag.tex"
 
 BLUE, GREEN, GOLD = "#4C72B0", "#55A868", "#B8860B"   # first-day return / continuation / SpaceX
-DISPLAY_N = 25        # show the largest-by-proceeds comparison deals (the panel CSV is in that order)
+DISPLAY_N = 25        # paper figure: largest-by-proceeds comparison deals (panel CSV is in that order)
+N_SLIDE = 15          # presentation figure: a reduced set (largest by proceeds); the rest are in the paper
+CAP_B = 40.0          # panel (b) x-axis cap; extreme continuations run off-scale, labeled at the edge
 
 
 def _short(label: str) -> str:
@@ -133,39 +135,11 @@ def build_optlag_table():
     return lags
 
 
-def main():
-    if not PANEL.exists():
-        print(f"debut panel skipped: needs {PANEL} (build it via pull_sdc_ipo_raw.R -> "
-              "build_ipo_universe_from_raw.py -> pull_debut_panel_wrds.R).")
-        return
-
-    rows = load_panel()
-
-    d = json.loads(SERIES.read_text(encoding="utf-8-sig"))
-    offer = float(d["offer_price"]); bars = d["bars"]
-
-    def sxc(k):                                         # SpaceX continuation to its kth daily close
-        return (float(bars[min(k - 1, len(bars) - 1)]["close"]) / float(bars[0]["close"]) - 1) * 100
-
-    sx_ret = (float(bars[0]["close"]) / offer - 1) * 100
-    sx_c5, sx_c3, sx_c2 = sxc(5), sxc(3), sxc(2)        # five-session window; three is the peak
-    sx_iv = spacex_iv_cboe()
-    rows.append(("SpaceX", sx_ret, sx_c5, sx_c3, sx_c2, sx_iv, True))
-    rows.sort(key=lambda r: r[1])                       # ascending -> biggest pop at the top
-
-    comps = [r for r in rows if not r[6]]
-    iv_vals = sorted(r[5] for r in comps if r[5] is not None)
-    med_iv = st.median(iv_vals)
-    med_ret = st.median(r[1] for r in comps)
-    med_ct = st.median(r[2] for r in comps if r[2] is not None)         # 5-session median
-    n_iv_above = sum(1 for v in iv_vals if v > sx_iv)
-    n_cont_above = sum(1 for r in comps if r[2] is not None and r[2] > sx_c5)
-    n_faded5 = sum(1 for r in comps if r[2] is not None and r[2] < 0)
-    n_faded3 = sum(1 for r in comps if r[3] is not None and r[3] < 0)
-    n_faded2 = sum(1 for r in comps if r[4] is not None and r[4] < 0)
-
-    CAP_B = 40.0          # panel (b) x-axis cap; a handful of extreme continuations (Robinhood,
-    n = len(rows)         # Rivian) run off-scale and are drawn to the edge with their value labeled
+def draw(rows, med_ret, med_ct, med_iv, out_stem):
+    """Render the three-panel debut figure for `rows` (SpaceX included, sorted by first-day return)
+    and the full-set medians, to FIGS/<out_stem>.pdf|png. Used for both the full paper figure and a
+    reduced presentation figure."""
+    n = len(rows)
     plt.rcParams.update({"font.size": 12, "axes.spines.top": False, "axes.spines.right": False,
                          "figure.dpi": 120, "savefig.bbox": "tight"})
     fig, (axr, axc, axv) = plt.subplots(
@@ -232,8 +206,46 @@ def main():
     axv.set_xlim(0, max([r[5] for r in rows if r[5] is not None]) * 1.14)
 
     FIGS.mkdir(parents=True, exist_ok=True)
-    fig.savefig(FIGS / "fig_debut_panel.pdf")
-    fig.savefig(FIGS / "fig_debut_panel.png")
+    fig.savefig(FIGS / f"{out_stem}.pdf")
+    fig.savefig(FIGS / f"{out_stem}.png")
+    plt.close(fig)
+
+
+def main():
+    if not PANEL.exists():
+        print(f"debut panel skipped: needs {PANEL} (build it via pull_sdc_ipo_raw.R -> "
+              "build_ipo_universe_from_raw.py -> pull_debut_panel_wrds.R).")
+        return
+
+    comps = load_panel()                                # largest DISPLAY_N by proceeds (proceeds order)
+
+    d = json.loads(SERIES.read_text(encoding="utf-8-sig"))
+    offer = float(d["offer_price"]); bars = d["bars"]
+
+    def sxc(k):                                         # SpaceX continuation to its kth daily close
+        return (float(bars[min(k - 1, len(bars) - 1)]["close"]) / float(bars[0]["close"]) - 1) * 100
+
+    sx_ret = (float(bars[0]["close"]) / offer - 1) * 100
+    sx_c5, sx_c3, sx_c2 = sxc(5), sxc(3), sxc(2)        # five-session window; three is the peak
+    sx_iv = spacex_iv_cboe()
+    sx_row = ("SpaceX", sx_ret, sx_c5, sx_c3, sx_c2, sx_iv, True)
+    rows = sorted(comps + [sx_row], key=lambda r: r[1])  # full figure, biggest pop at the top
+
+    iv_vals = sorted(r[5] for r in comps if r[5] is not None)
+    med_iv = st.median(iv_vals)
+    med_ret = st.median(r[1] for r in comps)
+    med_ct = st.median(r[2] for r in comps if r[2] is not None)         # 5-session median
+    n_iv_above = sum(1 for v in iv_vals if v > sx_iv)
+    n_cont_above = sum(1 for r in comps if r[2] is not None and r[2] > sx_c5)
+    n_faded5 = sum(1 for r in comps if r[2] is not None and r[2] < 0)
+    n_faded3 = sum(1 for r in comps if r[3] is not None and r[3] < 0)
+    n_faded2 = sum(1 for r in comps if r[4] is not None and r[4] < 0)
+
+    # full figure for the paper, and a reduced one for the deck (largest N_SLIDE by proceeds, the
+    # rest noted as "in the paper"); both use the full-set medians for the grey median row
+    draw(rows, med_ret, med_ct, med_iv, "fig_debut_panel")
+    rows_slide = sorted(comps[:N_SLIDE] + [sx_row], key=lambda r: r[1])
+    draw(rows_slide, med_ret, med_ct, med_iv, "fig_debut_panel_slide")
 
     # ---- macros (names unchanged so the prose keeps resolving) ----
     above = [r[0] for r in sorted([r for r in comps if r[2] is not None and r[2] > sx_c5],
@@ -260,7 +272,8 @@ def main():
               "contMedPct": f"{med_ct:.0f}",
               "contNFaded": f"{n_faded5}", "contNFadedTwo": f"{n_faded2}",
               "contNFadedThree": f"{n_faded3}", "contWindowDays": "5",
-              "debutNTotal": f"{len(comps)}", "debutNoOptN": f"{n_noopt}"}
+              "debutNTotal": f"{len(comps)}", "debutNoOptN": f"{n_noopt}",
+              "debutNShown": f"{min(N_SLIDE, len(comps))}"}   # count in the reduced presentation figure
     OUT_TEX.write_text("% Auto-generated by 12_fig_debut_panel.py; do not edit by hand.\n"
                        + "\n".join(f"\\newcommand{{\\{k}}}{{{v}}}" for k, v in macros.items()) + "\n",
                        encoding="utf-8")
