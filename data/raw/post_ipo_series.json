@@ -49,6 +49,24 @@
       "close": 185.0,
       "volume": 272126800,
       "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-22",
+      "open": 176.04,
+      "high": 176.75,
+      "low": 154.0,
+      "close": 154.6,
+      "volume": 169183800,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-23",
+      "open": 151.06,
+      "high": 165.5,
+      "low": 147.11,
+      "close": 156.11,
+      "volume": 155848100,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
     }
   ],
   "events": [

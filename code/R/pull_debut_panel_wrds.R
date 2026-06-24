@@ -33,7 +33,10 @@
 #   cont2_pct, cont3_pct, cont5_pct, first_opt_date, atm_iv30_pct
 # Continuation is the return from the first close to the 2nd / 3rd / 5th daily close; Figure 7's
 # panel (b) uses the 5-session (first-trading-week) window, with 2 and 3 sessions for robustness.
-# Then rerun 12_fig_debut_panel.py (which will read this single file) to redraw Figure 7.
+# ALSO OUTPUT: data/clean/ipo_debut_paths.csv -- one row per (deal, trading day) for the first
+#   PATH_DAYS sessions: label, cusip, day, cumret_pct (return from the first close). This feeds the
+#   median-IPO counterfactual on Figure 8, which must extend to wherever SpaceX currently trades.
+# Then rerun 12_fig_debut_panel.py (Figure 7) and 10_fig_price_path.py (Figure 8).
 #
 # SCHEMA NOTE: if a table/column name errors, your WRDS vintage differs; the diagnostic block at
 # the bottom lists available columns. Standard libraries used: crsp (dsf, dsenames/stocknames),
@@ -45,9 +48,12 @@ for (p in c("RPostgres", "DBI", "getPass")) {
 }
 library(DBI); library(RPostgres); library(getPass)
 
-OPTIONM <- "optionm"                        # change to "optionm_all" if your WRDS uses that
-UNIV    <- file.path("data", "raw", "ipo_universe.csv")
-OUT     <- file.path("data", "clean", "ipo_debut_panel.csv")
+OPTIONM   <- "optionm"                      # change to "optionm_all" if your WRDS uses that
+UNIV      <- file.path("data", "raw", "ipo_universe.csv")
+OUT       <- file.path("data", "clean", "ipo_debut_panel.csv")
+OUT_PATHS <- file.path("data", "clean", "ipo_debut_paths.csv")   # daily paths for the Fig-8 counterfactual
+PATH_DAYS <- 40                             # trading days of closes to pull per deal (covers the window
+                                            # to the first post-IPO earnings release, where the analysis ends)
 dir.create(dirname(OUT), recursive = TRUE, showWarnings = FALSE)
 
 if (!file.exists(UNIV))
@@ -68,10 +74,12 @@ crsp_prices <- function(cusip8, ipo) {
   if (!length(pm)) return(NULL)
   px <- dbGetQuery(wrds, sprintf(
     "SELECT date, ABS(prc) AS prc FROM crsp.dsf
-     WHERE permno = %d AND date >= '%s' ORDER BY date ASC LIMIT 6", pm[1], ipo))
+     WHERE permno = %d AND date >= '%s' ORDER BY date ASC LIMIT %d", pm[1], ipo, PATH_DAYS))
   if (nrow(px) < 3) return(NULL)
   g <- function(k) if (nrow(px) >= k) px$prc[k] else NA    # kth daily close, NA if not yet traded
-  list(permno = pm[1], c1 = px$prc[1], c2 = g(2), c3 = g(3), c5 = g(5))
+  # c1/c2/c3/c5 feed Figure 7 (the fixed first-week comparison); the full close vector feeds the
+  # extensible median-IPO path on Figure 8 (the counterfactual must reach wherever SpaceX now trades).
+  list(permno = pm[1], c1 = px$prc[1], c2 = g(2), c3 = g(3), c5 = g(5), closes = px$prc)
 }
 
 ## ---- OptionMetrics: secid from CUSIP, first option date, ATM 30-day implied vol -------------
@@ -96,7 +104,7 @@ om_iv <- function(cusip8) {
 }
 
 ## ---- loop ----------------------------------------------------------------------------------
-rows <- list()
+rows <- list(); prows <- list()
 for (i in seq_len(nrow(ipos))) {
   lab <- ipos$label[i]; cu <- ipos$cusip[i]; ipo <- as.Date(ipos$ipo_date[i]); off <- ipos$offer_price[i]
   pr <- crsp_prices(cu, ipo)
@@ -111,14 +119,21 @@ for (i in seq_len(nrow(ipos))) {
     first_day_ret_pct = round(fdr, 1), cont2_pct = round(cont2, 1), cont3_pct = round(cont3, 1),
     cont5_pct = round(cont5, 1), first_opt_date = iv$d0, atm_iv30_pct = round(iv$iv, 1),
     stringsAsFactors = FALSE)
+  # per-day cumulative return from the first close (day 1 = 0%), for the Fig-8 median-IPO path
+  prows[[length(prows) + 1]] <- data.frame(
+    label = lab, cusip = cu, day = seq_along(pr$closes),
+    cumret_pct = round(100 * (pr$closes / pr$closes[1] - 1), 2), stringsAsFactors = FALSE)
   cat(sprintf("  %-26s ret %+5.1f%%  cont3 %+5.1f%%  cont5 %s  IV %s\n", lab, fdr, cont3,
               ifelse(is.na(cont5), "  n/a", sprintf("%+5.1f%%", cont5)),
               ifelse(is.na(iv$iv), "n/a (no options in vintage)", sprintf("%.0f%%", iv$iv))))
 }
 out <- do.call(rbind, rows)
 write.csv(out, OUT, row.names = FALSE)
-cat(sprintf("\nWrote %d deals to %s. Deals with IV n/a keep their return/continuation; the figure\n", nrow(out), OUT))
-cat("drops only the implied-vol marker for those, and notes it.\n")
+paths <- do.call(rbind, prows)
+write.csv(paths, OUT_PATHS, row.names = FALSE)
+cat(sprintf("\nWrote %d deals to %s and %d path-rows (<=%d trading days each) to %s.\n",
+            nrow(out), OUT, nrow(paths), PATH_DAYS, OUT_PATHS))
+cat("Deals with IV n/a keep their return/continuation; the figure drops only the implied-vol marker.\n")
 dbDisconnect(wrds)
 
 ## ---- DIAGNOSTIC (uncomment if a table/column errors) ---------------------------------------

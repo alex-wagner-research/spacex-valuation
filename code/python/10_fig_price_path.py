@@ -149,25 +149,38 @@ def main():
 
     draw_prices(axL, axLr, bars, bx, offer, sh)
 
-    # counterfactual: where the price would stand had SpaceX followed the median post-listing drift of
-    # the SAME objective comparison set as Figure 7 -- anchored at the first close, applying the set's
-    # median session-by-session returns (from data/clean/ipo_debut_panel.csv, the largest U.S. IPOs by
-    # proceeds). cont{2,3,5}_pct are cumulative from the first close; differencing gives each session.
+    # counterfactual: where the price would stand had SpaceX followed the median post-listing path of
+    # the SAME objective comparison set as Figure 7, anchored at SpaceX's first close. The median is
+    # taken trading-day by trading-day (SpaceX's t-th session vs the comparison set's t-th session), so
+    # the path extends to wherever SpaceX currently trades. Source: data/clean/ipo_debut_paths.csv
+    # (cumret_pct = each comparison deal's return from its first close, by trading day); if that file is
+    # absent, fall back to the first-week cont{2,3,5} columns of ipo_debut_panel.csv.
     try:
         import csv as _csv
         import statistics as _st
-        cum = {2: [], 3: [], 5: []}                         # cumulative return to the 2nd/3rd/5th close
-        with open(ROOT / "data" / "clean" / "ipo_debut_panel.csv", newline="") as _f:
-            for _r in _csv.DictReader(_f):
-                for _s, _c in ((2, "cont2_pct"), (3, "cont3_pct"), (5, "cont5_pct")):
-                    _v = _r.get(_c, "")
-                    if _v not in ("", "NA"):
-                        cum[_s].append(float(_v) / 100)
-        # median price relative to the first close at sessions 1, 2, 3, 5; session s sits at bar index
-        # s-1 (so day 5 plots at its own x, not day 4, which the panel does not carry a median for)
         c0 = float(bars[0]["close"])
-        sess = [(1, 0.0)] + [(s, _st.median(cum[s])) for s in (2, 3, 5) if cum[s]]
-        pts = [(bx[s - 1], c0 * (1 + m)) for s, m in sess if s - 1 < len(bx)]
+        paths = ROOT / "data" / "clean" / "ipo_debut_paths.csv"
+        byday = {}                                          # trading day t -> comparison cumret fractions
+        if paths.exists():
+            with open(paths, newline="") as _f:
+                for _r in _csv.DictReader(_f):
+                    _v = _r.get("cumret_pct", "")
+                    if _v not in ("", "NA"):
+                        byday.setdefault(int(_r["day"]), []).append(float(_v) / 100)
+            # SpaceX bar i is its (i+1)-th trading day; place the comparison median for that session at
+            # the bar's calendar position (bx[i]), so the dotted path tracks SpaceX day for day
+            pts = [(bx[i], c0 * (1 + _st.median(byday[i + 1])))
+                   for i in range(len(bars)) if byday.get(i + 1)]
+        else:                                               # fallback: first-week panel (days 1,2,3,5)
+            cum = {2: [], 3: [], 5: []}
+            with open(ROOT / "data" / "clean" / "ipo_debut_panel.csv", newline="") as _f:
+                for _r in _csv.DictReader(_f):
+                    for _s, _c in ((2, "cont2_pct"), (3, "cont3_pct"), (5, "cont5_pct")):
+                        _v = _r.get(_c, "")
+                        if _v not in ("", "NA"):
+                            cum[_s].append(float(_v) / 100)
+            sess = [(1, 0.0)] + [(s, _st.median(cum[s])) for s in (2, 3, 5) if cum[s]]
+            pts = [(bx[s - 1], c0 * (1 + m)) for s, m in sess if s - 1 < len(bx)]
         cfx = [p[0] for p in pts]; cf = [p[1] for p in pts]
         axL.plot(cfx, cf, ":o", color=MAROON, lw=1.9, ms=6, zorder=3)
         axL.annotate("median IPO price path", (cfx[-1], cf[-1]), textcoords="offset points",
