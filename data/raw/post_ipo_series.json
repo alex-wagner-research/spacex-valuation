@@ -67,18 +67,135 @@
       "close": 156.11,
       "volume": 155848100,
       "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-24",
+      "open": 154.19,
+      "high": 159.86,
+      "low": 150.72,
+      "close": 154.54,
+      "volume": 76101540,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-25",
+      "open": 156.62,
+      "high": 160.65,
+      "low": 150.0,
+      "close": 153.0,
+      "volume": 62212440,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-26",
+      "open": 150.62,
+      "high": 158.4,
+      "low": 148.51,
+      "close": 153.23,
+      "volume": 126932900,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-29",
+      "open": 157.35,
+      "high": 166.17,
+      "low": 151.74,
+      "close": 164.19,
+      "volume": 81443100,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-06-30",
+      "open": 163.38,
+      "high": 172.4,
+      "low": 161.64,
+      "close": 170.86,
+      "volume": 82047550,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-01",
+      "open": 171.56,
+      "high": 171.74,
+      "low": 155.0,
+      "close": 157.54,
+      "volume": 109317600,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-02",
+      "open": 159.72,
+      "high": 162.16,
+      "low": 155.88,
+      "close": 162.0,
+      "volume": 61257120,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-06",
+      "open": 165.95,
+      "high": 167.9,
+      "low": 155.04,
+      "close": 160.42,
+      "volume": 188831300,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-07",
+      "open": 158.92,
+      "high": 159.3,
+      "low": 148.86,
+      "close": 149.47,
+      "volume": 83779740,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-08",
+      "open": 152.55,
+      "high": 152.93,
+      "low": 145.2,
+      "close": 148.3,
+      "volume": 60949410,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-09",
+      "open": 150.44,
+      "high": 153.5,
+      "low": 147.59,
+      "close": 152.16,
+      "volume": 46468590,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-10",
+      "open": 150.12,
+      "high": 150.57,
+      "low": 145.07,
+      "close": 145.3,
+      "volume": 46826000,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-13",
+      "open": 144.7,
+      "high": 144.92,
+      "low": 136.78,
+      "close": 139.14,
+      "volume": 71456510,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
     }
   ],
   "events": [
     {
       "date": "2026-06-16",
       "label": "Listed options begin",
-      "status": "expected"
+      "status": "realized"
     },
     {
-      "date": "2026-07-06",
-      "label": "Nasdaq-100 review",
-      "status": "expected"
+      "date": "2026-07-07",
+      "label": "Joined Nasdaq-100",
+      "status": "realized"
     },
     {
       "date": "2026-07-30",

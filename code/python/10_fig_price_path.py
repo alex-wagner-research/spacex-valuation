@@ -11,7 +11,7 @@ open gaps between sessions. The marked future events are weeks out, so the axis 
 wide left panel for the trading-day region and a narrow right panel for the future-events region,
 joined by a zig-zag cut that signals the omitted span. Fonts are sized for print legibility.
 
-  * left price axis (dark): the daily price as an open-high-low-close bar (and the offer as a point);
+  * left price axis (dark): the daily closing price as a line (and the offer as a point);
   * right return axis (orange): the implied expected return at each close (whisker = intraday range),
     against the 8.25 percent baseline cost of capital;
   * dashed verticals mark the expected near-term events.
@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import matplotlib
@@ -44,7 +44,6 @@ RMAX = 9.0            # right-axis top: headroom above the 8.25% baseline
 NAVY, ORANGE = "#2E4057", "#E85D04"
 MAROON = "#9E2A2B"    # the counterfactual "median IPO path"
 GREY = "0.38"
-TW = 0.30             # OHLC open/close tick half-length, in trading-day units
 
 _dec = json.loads((ROOT / "output" / "tables" / "decomposition.json").read_text())
 OPT_BASE = sum(v for k, v in _dec["options"].items() if k != "Abandonment")
@@ -59,12 +58,20 @@ def D(s: str) -> datetime:
     return datetime.strptime(s, "%Y-%m-%d")
 
 
+# US equity-market holidays inside the June-August 2026 window. Without these, a weekday the market
+# is closed (Juneteenth, the July 4 observance) counts as a session and opens a phantom gap in the
+# axis -- e.g. between June 18 and 22 -- even though no bar exists for it. Skipping them makes the
+# trading-day index count actual sessions, so consecutive sessions sit one unit apart with no gaps.
+MKT_HOLIDAYS = {date(2026, 6, 19),   # Juneteenth
+                date(2026, 7, 3)}    # Independence Day observed (July 4 falls on a Saturday)
+
+
 def bidx(odate: datetime, d: datetime) -> int:
-    """Business-day (trading-day) index of d, counting the offer date as 0."""
+    """Trading-day index of d, counting the offer date as 0 (skips weekends and market holidays)."""
     n, cur = 0, odate
     while cur.date() < d.date():
         cur += timedelta(days=1)
-        if cur.weekday() < 5:
+        if cur.weekday() < 5 and cur.date() not in MKT_HOLIDAYS:
             n += 1
     return n
 
@@ -78,19 +85,13 @@ def zigzag(ax, x, n=17, amp=0.010, color=GREY, lw=1.2):
 
 
 def draw_prices(axp, axr, bars, bx, offer, sh):
-    """Price OHLC bars + offer point on axp; implied-return markers + whiskers on axr."""
+    """Close-price line + offer point on axp; implied-return markers + whiskers on axr."""
     cx = [0] + bx
     cc = [offer] + [float(b["close"]) for b in bars]
-    axp.plot(cx, cc, "-", color=NAVY, lw=1.0, alpha=0.30, zorder=2)
+    axp.plot(cx, cc, "-o", color=NAVY, lw=1.8, ms=4.5, zorder=3)
     axp.plot(0, offer, "o", color=NAVY, ms=7, zorder=4)
     axp.annotate(f"Offer \\${offer:.0f}", (0, offer), textcoords="offset points",
-                 xytext=(0, -12), ha="center", va="top", fontsize=13,color=NAVY)
-    for b, x in zip(bars, bx):
-        axp.vlines(x, b["low"], b["high"], color=NAVY, lw=2.0, zorder=3)
-        axp.plot([x - TW, x], [b["open"], b["open"]], color=NAVY, lw=2.0, zorder=3)
-        axp.plot([x, x + TW], [b["close"], b["close"]], color=NAVY, lw=2.0, zorder=3)
-        axp.annotate(f"\\${b['close']:.0f}", (x, b["high"]), textcoords="offset points",
-                     xytext=(0, 7), ha="center", fontsize=13,color=NAVY, fontweight="bold")
+                 xytext=(0, -12), ha="center", va="top", fontsize=13, color=NAVY)
 
     rc = [implied_pct(offer, sh)] + [implied_pct(float(b["close"]), sh) for b in bars]
     axr.plot(cx, rc, "--s", color=ORANGE, lw=1.8, ms=7, zorder=4)
@@ -150,59 +151,89 @@ def main():
     draw_prices(axL, axLr, bars, bx, offer, sh)
 
     # counterfactual: where the price would stand had SpaceX followed the median post-listing path of
-    # the SAME objective comparison set as Figure 7, anchored at SpaceX's first close. The median is
-    # taken trading-day by trading-day (SpaceX's t-th session vs the comparison set's t-th session), so
-    # the path extends to wherever SpaceX currently trades. Source: data/clean/ipo_debut_paths.csv
-    # (cumret_pct = each comparison deal's return from its first close, by trading day); if that file is
-    # absent, fall back to the first-week cont{2,3,5} columns of ipo_debut_panel.csv.
+    # the SAME comparison set shown in Figure 7 -- the top N_COMPARE deals by proceeds -- anchored at
+    # SpaceX's first close. The median is taken trading-day by trading-day (SpaceX's t-th session vs the
+    # set's t-th session), so the path extends to wherever SpaceX currently trades. Source:
+    # data/clean/ipo_debut_paths.csv (cumret_pct = each deal's return from its first close, by trading
+    # day); if absent, fall back to the first-week cont{2,3,5} columns of ipo_debut_panel.csv.
+    N_COMPARE = 25      # comparison-set size; keep in sync with DISPLAY_N in 12_fig_debut_panel.py
     try:
         import csv as _csv
         import statistics as _st
         c0 = float(bars[0]["close"])
         paths = ROOT / "data" / "clean" / "ipo_debut_paths.csv"
         byday = {}                                          # trading day t -> comparison cumret fractions
+        band = None                                         # (x, lo, hi) interquartile ribbon, if computable
         if paths.exists():
-            with open(paths, newline="") as _f:
-                for _r in _csv.DictReader(_f):
-                    _v = _r.get("cumret_pct", "")
-                    if _v not in ("", "NA"):
-                        byday.setdefault(int(_r["day"]), []).append(float(_v) / 100)
+            prows = list(_csv.DictReader(open(paths, newline="")))
+            order = []                                      # unique deals in proceeds (file) order
+            for _r in prows:
+                if _r["cusip"] not in order:
+                    order.append(_r["cusip"])
+            keep = set(order[:N_COMPARE])                   # the same top-N set Figure 7 shows
+            for _r in prows:
+                _v = _r.get("cumret_pct", "")
+                if _r["cusip"] in keep and _v not in ("", "NA"):
+                    byday.setdefault(int(_r["day"]), []).append(float(_v) / 100)
             # SpaceX bar i is its (i+1)-th trading day; place the comparison median for that session at
             # the bar's calendar position (bx[i]), so the dotted path tracks SpaceX day for day
             pts = [(bx[i], c0 * (1 + _st.median(byday[i + 1])))
                    for i in range(len(bars)) if byday.get(i + 1)]
+            # 10th-90th percentile ribbon around the median, to show that the flat typical path masks
+            # wide dispersion across large IPOs (the middle 80%, excluding only the extreme tails) --
+            # deliberately faint, no edge
+            def _pctile(vv, p):                             # linear-interpolated percentile (numpy-style)
+                vv = sorted(vv); k = (len(vv) - 1) * p; f = int(k); c = min(f + 1, len(vv) - 1)
+                return vv[f] + (vv[c] - vv[f]) * (k - f)
+            _bd = [(bx[i], c0 * (1 + _pctile(byday[i + 1], 0.10)), c0 * (1 + _pctile(byday[i + 1], 0.90)))
+                   for i in range(len(bars)) if byday.get(i + 1)]
+            band = ([p[0] for p in _bd], [p[1] for p in _bd], [p[2] for p in _bd])
         else:                                               # fallback: first-week panel (days 1,2,3,5)
             cum = {2: [], 3: [], 5: []}
-            with open(ROOT / "data" / "clean" / "ipo_debut_panel.csv", newline="") as _f:
-                for _r in _csv.DictReader(_f):
-                    for _s, _c in ((2, "cont2_pct"), (3, "cont3_pct"), (5, "cont5_pct")):
-                        _v = _r.get(_c, "")
-                        if _v not in ("", "NA"):
-                            cum[_s].append(float(_v) / 100)
+            _prows = list(_csv.DictReader(open(ROOT / "data" / "clean" / "ipo_debut_panel.csv", newline="")))
+            for _r in _prows[:N_COMPARE]:                   # same top-N set
+                for _s, _c in ((2, "cont2_pct"), (3, "cont3_pct"), (5, "cont5_pct")):
+                    _v = _r.get(_c, "")
+                    if _v not in ("", "NA"):
+                        cum[_s].append(float(_v) / 100)
             sess = [(1, 0.0)] + [(s, _st.median(cum[s])) for s in (2, 3, 5) if cum[s]]
             pts = [(bx[s - 1], c0 * (1 + m)) for s, m in sess if s - 1 < len(bx)]
         cfx = [p[0] for p in pts]; cf = [p[1] for p in pts]
+        if band:
+            axL.fill_between(band[0], band[1], band[2], color=MAROON, alpha=0.12, lw=0, zorder=1)
         axL.plot(cfx, cf, ":o", color=MAROON, lw=1.9, ms=6, zorder=3)
-        axL.annotate("median IPO price path", (cfx[-1], cf[-1]), textcoords="offset points",
-                     xytext=(5, -10), ha="left", va="top", fontsize=12.5, color=MAROON)
+        _lbl = min(1, len(cfx) - 1)                         # anchor at an early point (stays clear of
+        axL.annotate("median IPO price path", (cfx[_lbl], cf[_lbl]),   # the broken-axis cut on the right)
+                     textcoords="offset points", xytext=(2, -13), ha="left", va="top",
+                     fontsize=11.5, color=MAROON)
     except Exception as _e:                                # never let the reference path break the figure
         print(f"  (counterfactual median-IPO path skipped: {_e!r})")
 
     axL.set_ylim(0, PMAX); axLr.set_ylim(0, RMAX)
     axL.set_ylabel("Share price (\\$)", color=NAVY, fontsize=16)
     axL.tick_params(axis="y", labelcolor=NAVY, labelsize=14)
-    axL.tick_params(axis="x", labelsize=14)
+    axL.tick_params(axis="x", labelsize=12)
     axL.set_xlim(-0.7, left_cut + 0.8)
 
-    # trading-day ticks, labelled by date (no weekend gaps)
-    left_ticks = {0: odate}
+    # trading-day ticks, labelled by date (no weekend gaps). The offer sits at x=0 but is already
+    # annotated "Offer $..." on the plot, so it gets no date tick -- that keeps its label from
+    # colliding with the first trading day one unit to its right.
+    left_ticks = {}
     for b, x in zip(bars, bx):
         left_ticks[x] = D(b["date"])
     for e in events:
         if ev_x[e["label"]] <= left_cut:
             left_ticks[ev_x[e["label"]]] = D(e["date"])
     axL.set_xticks(sorted(left_ticks))
-    axL.set_xticklabels([left_ticks[k].strftime("%b %d") for k in sorted(left_ticks)])
+    # label with the month only when it changes (else the bare day), so the axis is not a wall of
+    # repeated "Jun"/"Jul"; keeps the trading-day dates legible without overlap
+    _keys = sorted(left_ticks)
+    _labels, _pm = [], None
+    for _k in _keys:
+        _dt = left_ticks[_k]
+        _labels.append(f"{_dt.strftime('%b')} {_dt.day}" if _dt.month != _pm else str(_dt.day))
+        _pm = _dt.month
+    axL.set_xticklabels(_labels)
 
     # baseline cost of capital (return axis), label parked top-left, clear of the event labels
     return_axes = [axLr] + ([axRr] if broken else [])
@@ -265,6 +296,11 @@ def main():
          f"\\newcommand{{\\ppOfferWaccPct}}{{{implied_pct(offer, sh):.2f}}}",
          f"\\newcommand{{\\ppLatestCumPct}}{{{(float(last_b['close']) / offer - 1) * 100:.1f}}}",
          f"\\newcommand{{\\ppLatestHigh}}{{{float(last_b['high']):.2f}}}",
+         # latest close relative to the first-day close (signed magnitude + direction word), so prose
+         # about trading below/above the first-day close flips automatically as the price moves
+         f"\\newcommand{{\\ppFirstClose}}{{{float(bars[0]['close']):.2f}}}",
+         f"\\newcommand{{\\ppVsFirstAbsPct}}{{{abs((float(last_b['close']) / float(bars[0]['close']) - 1) * 100):.1f}}}",
+         f"\\newcommand{{\\ppVsFirstWord}}{{{'below' if float(last_b['close']) < float(bars[0]['close']) else 'above'}}}",
          # running peak (highest close to date) and the return it implies
          f"\\newcommand{{\\ppPeakPrice}}{{{peak_close:.2f}}}",
          f"\\newcommand{{\\ppPeakDate}}{{{D(peak_b['date']).strftime('%B ') + str(int(peak_b['date'][-2:]))}}}",
