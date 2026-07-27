@@ -184,6 +184,87 @@
       "close": 139.14,
       "volume": 71456510,
       "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-14",
+      "open": 140.95,
+      "high": 143.33,
+      "low": 135.52,
+      "close": 136.08,
+      "volume": 46694830,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-15",
+      "open": 137.5,
+      "high": 139.34,
+      "low": 132.15,
+      "close": 135.27,
+      "volume": 58040920,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-16",
+      "open": 135.01,
+      "high": 137.76,
+      "low": 130.74,
+      "close": 131.11,
+      "volume": 58725580,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-17",
+      "open": 127.43,
+      "high": 130.33,
+      "low": 122.12,
+      "close": 123.99,
+      "volume": 83706220,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-20",
+      "open": 125.28,
+      "high": 125.7,
+      "low": 119.68,
+      "close": 119.85,
+      "volume": 57337250,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-21",
+      "open": 122.11,
+      "high": 129.88,
+      "low": 120.36,
+      "close": 123.54,
+      "volume": 79718080,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-22",
+      "open": 123.29,
+      "high": 124.77,
+      "low": 115.19,
+      "close": 115.26,
+      "volume": 92731800,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-23",
+      "open": 115.2,
+      "high": 118.55,
+      "low": 110.85,
+      "close": 118.24,
+      "volume": 75246450,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-24",
+      "open": 116.0,
+      "high": 117.0,
+      "low": 111.4,
+      "close": 115.07,
+      "volume": 56786080,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
     }
   ],
   "events": [

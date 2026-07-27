@@ -125,7 +125,10 @@ def main():
     d = json.loads(SERIES.read_text(encoding="utf-8-sig"))
     offer = float(d["offer_price"]); sh = float(d["shares_m"])
     odate = D(d["offer_date"]); wend = D(d["window_end"])
-    bars = d["bars"]; events = d.get("events", [])
+    # Keep the series Nasdaq-official: drop any provisional (Yahoo-pending) bar the fetch may carry,
+    # so the figure and the "Nasdaq official through ..." caption never rest on an unsettled close.
+    bars = [b for b in d["bars"] if "PROVISIONAL" not in b.get("close_source", "")]
+    events = d.get("events", [])
     bx = [bidx(odate, D(b["date"])) for b in bars]
     last_x = bx[-1] if bx else 0
 
@@ -295,6 +298,12 @@ def main():
          f"\\newcommand{{\\ppLatestErpPp}}{{{last_w - RF:.2f}}}",
          f"\\newcommand{{\\ppOfferWaccPct}}{{{implied_pct(offer, sh):.2f}}}",
          f"\\newcommand{{\\ppLatestCumPct}}{{{(float(last_b['close']) / offer - 1) * 100:.1f}}}",
+         # latest close vs the offer, sign-safe (magnitude + direction word), so prose reads correctly
+         # whether the stock trades above or below its offer; plus the first date it closed sub-offer
+         f"\\newcommand{{\\ppVsOfferAbsPct}}{{{abs((float(last_b['close']) / offer - 1) * 100):.1f}}}",
+         f"\\newcommand{{\\ppVsOfferWord}}{{{'below' if float(last_b['close']) < offer else 'above'}}}",
+         f"\\newcommand{{\\ppVsOfferWaccWord}}{{{'above' if last_w > implied_pct(offer, sh) else 'below'}}}",
+         f"\\newcommand{{\\ppFirstBelowOfferDate}}{{{next((D(b['date']).strftime('%B ') + str(int(b['date'][-2:])) for b in bars if float(b['close']) < offer), 'n/a')}}}",
          f"\\newcommand{{\\ppLatestHigh}}{{{float(last_b['high']):.2f}}}",
          # latest close relative to the first-day close (signed magnitude + direction word), so prose
          # about trading below/above the first-day close flips automatically as the price moves
