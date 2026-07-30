@@ -265,6 +265,33 @@
       "close": 115.07,
       "volume": 56786080,
       "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-27",
+      "open": 113.5,
+      "high": 114.85,
+      "low": 108.66,
+      "close": 113.5,
+      "volume": 64540680,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-28",
+      "open": 109.32,
+      "high": 118.13,
+      "low": 107.01,
+      "close": 116.41,
+      "volume": 81714250,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
+    },
+    {
+      "date": "2026-07-29",
+      "open": 114.39,
+      "high": 117.59,
+      "low": 110.35,
+      "close": 112.55,
+      "volume": 53995190,
+      "close_source": "Nasdaq official historical (api.nasdaq.com)"
     }
   ],
   "events": [
@@ -279,7 +306,7 @@
       "status": "realized"
     },
     {
-      "date": "2026-07-30",
+      "date": "2026-08-04",
       "label": "Q2 earnings",
       "status": "expected"
     }
